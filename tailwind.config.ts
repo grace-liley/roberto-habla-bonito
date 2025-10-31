@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Open Sans', 'system-ui', 'sans-serif'],
-        marker: ['Permanent Marker', 'cursive'],
+        marker: ['Amatic SC', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",

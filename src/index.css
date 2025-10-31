@@ -55,7 +55,7 @@ All colors MUST be HSL.
 
   /* Hand-drawn heading styles */
   .hand-drawn {
-    font-family: 'Permanent Marker', cursive;
+    font-family: 'Amatic SC', cursive;
     letter-spacing: 0.02em;
     line-height: 1.2;
   }
