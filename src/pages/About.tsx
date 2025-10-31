@@ -100,7 +100,7 @@ const About = () => {
                 What level of Spanish do I need?
               </h3>
               <p className="text-muted-foreground">
-                All levels are welcome! Roberto adapts to your skill level and helps you grow from wherever you are.
+                You need to be able to speak and understand Spanish to the level of a toddler - around an A2 or B1. Yes, Roberto will still push you (he has to, he doesn't really speak English, but he is still desperate to be your friend). You're going to be in the deep end, where you need to be!
               </p>
             </div>
             
