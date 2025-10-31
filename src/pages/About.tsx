@@ -82,7 +82,7 @@ const About = () => {
             </li>
             <li className="flex gap-3">
               <span className="text-accent font-bold flex-shrink-0">•</span>
-              <span>Voice input feature coming soon (currently text-based)</span>
+              <span>You've only just met Roberto. Don't tell him anything personal (unless you really want to) but keep in mind he's AI.</span>
             </li>
           </ul>
         </section>
