@@ -62,7 +62,7 @@ const About = () => {
             </li>
             <li className="flex gap-3">
               <span className="text-accent font-bold flex-shrink-0">•</span>
-              <span>He can translate up to 5 English words at a time if you get stuck</span>
+              <span>He can speak up to 5 English words at a time if you get stuck</span>
             </li>
             <li className="flex gap-3">
               <span className="text-accent font-bold flex-shrink-0">•</span>
