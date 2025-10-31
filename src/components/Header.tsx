@@ -1,5 +1,6 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import {
   Sheet,
   SheetContent,
@@ -37,23 +38,17 @@ const Header = () => {
               </SheetDescription>
             </SheetHeader>
             <nav className="mt-8 flex flex-col gap-4" role="navigation" aria-label="Main navigation">
-              <a 
-                href="#about" 
+              <Link 
+                to="/about" 
                 className="text-lg hover:text-accent transition-colors py-2"
               >
                 About Roberto
-              </a>
+              </Link>
               <a 
-                href="#chat" 
+                href="/#chat" 
                 className="text-lg hover:text-accent transition-colors py-2"
               >
                 Start Chatting
-              </a>
-              <a 
-                href="#tips" 
-                className="text-lg hover:text-accent transition-colors py-2"
-              >
-                Learning Tips
               </a>
             </nav>
           </SheetContent>
