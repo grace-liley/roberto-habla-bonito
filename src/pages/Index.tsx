@@ -15,7 +15,7 @@ const Index = () => {
       <footer className="border-t border-border mt-16 py-8">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
-            Practise makes progress. Don't leave me!
+            Practice makes progress. Don't leave me!
           </p>
         </div>
       </footer>
