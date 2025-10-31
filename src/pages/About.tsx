@@ -20,14 +20,14 @@ const About = () => {
             <div className="flex-shrink-0">
               <img 
                 src={robertoAvatar} 
-                alt="Roberto the Spanish tutor" 
+                alt="Roberto the Colombian tutor" 
                 className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover"
               />
             </div>
             
             <div className="space-y-4 text-base md:text-lg leading-relaxed">
               <p>
-                ¡Hola! I'm Roberto, your patient Spanish friend who has nobody else to talk to. 
+                ¡Hola! I'm Roberto, your patient Colombian friend who has nobody else to talk to. 
                 Ready to chat for forever or 30 seconds. Take as long as you need to answer, 
                 ask me to repeat what I said (everything I say is also in writing, which helps), 
                 I've got all the time in the world for you.

@@ -16,7 +16,7 @@ const Header = () => {
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <h1 className="hand-drawn text-2xl md:text-3xl text-foreground">
           Roberto
-          <span className="block text-base md:text-lg text-muted-foreground">Spanish Tutor</span>
+          <span className="block text-base md:text-lg text-muted-foreground">Colombian Tutor</span>
         </h1>
         
         <Sheet>

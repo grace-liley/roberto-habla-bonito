@@ -16,7 +16,7 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      text: "¡Hola! I'm Roberto, your friendly Spanish tutor. Let's practice together! How can I help you today?",
+      text: "¡Hola! I'm Roberto, your friendly Colombian tutor. Let's practice together! How can I help you today?",
       isRoberto: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
