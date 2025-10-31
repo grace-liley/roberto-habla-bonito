@@ -148,8 +148,7 @@ const About = () => {
                 How do I give feedback or report issues?
               </h3>
               <p className="text-muted-foreground">
-                Please contact Grace - Roberto's a bit sensitive about direct criticism. 😊 
-                Your feedback helps make Roberto better for everyone!
+                Please get in touch with Grace. Roberto's just doing his best and he doesn't need to hear criticism from someone who barely knows him.
               </p>
             </div>
           </div>
