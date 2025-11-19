@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Voice chat widget overrides */
+@import './styles/voice-chat-overrides.css';
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

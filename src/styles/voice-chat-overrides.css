@@ -1,0 +1,213 @@
+/* Launch Lemonade Voice Chat Widget Overrides - Roberto Style */
+
+/* Target the main widget container */
+[data-lemonade-widget],
+[class*="lemonade"],
+#lemonade-chat-widget {
+  font-family: 'Open Sans', sans-serif !important;
+}
+
+/* Chat container styling */
+[data-lemonade-widget] [class*="chat-container"],
+[data-lemonade-widget] [class*="messages"],
+#lemonade-chat-widget [class*="chat-container"] {
+  background: hsl(var(--secondary) / 0.3) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: 1rem !important;
+  padding: 1rem !important;
+  min-height: 60vh !important;
+  max-height: 60vh !important;
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+}
+
+/* Bot message styling - Roberto's messages */
+[data-lemonade-widget] [class*="bot-message"],
+[data-lemonade-widget] [class*="assistant-message"],
+#lemonade-chat-widget [class*="bot-message"],
+#lemonade-chat-widget [class*="assistant-message"] {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-bottom: 1rem !important;
+  justify-content: flex-start !important;
+  animation: fadeIn 0.3s ease-out !important;
+}
+
+/* Bot message bubble */
+[data-lemonade-widget] [class*="bot-message"] [class*="content"],
+[data-lemonade-widget] [class*="bot-message"] [class*="bubble"],
+[data-lemonade-widget] [class*="bot-message"] [class*="text"],
+#lemonade-chat-widget [class*="bot-message"] [class*="content"],
+#lemonade-chat-widget [class*="bot-message"] [class*="bubble"] {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 2px solid hsl(var(--foreground)) !important;
+  border-radius: var(--chat-bubble-radius) !important;
+  padding: 0.75rem 1rem !important;
+  max-width: 75% !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+/* User message styling */
+[data-lemonade-widget] [class*="user-message"],
+#lemonade-chat-widget [class*="user-message"] {
+  display: flex !important;
+  gap: 0.75rem !important;
+  margin-bottom: 1rem !important;
+  justify-content: flex-end !important;
+  animation: fadeIn 0.3s ease-out !important;
+}
+
+/* User message bubble */
+[data-lemonade-widget] [class*="user-message"] [class*="content"],
+[data-lemonade-widget] [class*="user-message"] [class*="bubble"],
+[data-lemonade-widget] [class*="user-message"] [class*="text"],
+#lemonade-chat-widget [class*="user-message"] [class*="content"],
+#lemonade-chat-widget [class*="user-message"] [class*="bubble"] {
+  background: hsl(var(--foreground)) !important;
+  color: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--foreground)) !important;
+  border-radius: var(--chat-bubble-radius) !important;
+  padding: 0.75rem 1rem !important;
+  max-width: 75% !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+/* Roberto's avatar styling */
+[data-lemonade-widget] [class*="bot-message"] [class*="avatar"],
+[data-lemonade-widget] [class*="bot-message"] img,
+#lemonade-chat-widget [class*="bot-message"] [class*="avatar"],
+#lemonade-chat-widget [class*="bot-message"] img {
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  border-radius: 9999px !important;
+  border: 2px solid hsl(var(--foreground)) !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
+}
+
+/* Replace default avatar with Roberto's avatar */
+[data-lemonade-widget] [class*="bot-message"] [class*="avatar"],
+[data-lemonade-widget] [class*="bot-message"] img[src*="avatar"],
+#lemonade-chat-widget [class*="bot-message"] [class*="avatar"],
+#lemonade-chat-widget [class*="bot-message"] img[src*="avatar"] {
+  content: url('/src/assets/roberto-avatar.png') !important;
+}
+
+/* Voice control buttons */
+[data-lemonade-widget] button,
+#lemonade-chat-widget button {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  border-radius: 0.75rem !important;
+  border: 2px solid hsl(var(--foreground)) !important;
+  transition: all 0.2s ease-in-out !important;
+  touch-action: manipulation !important;
+}
+
+[data-lemonade-widget] button:hover,
+#lemonade-chat-widget button:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  border-color: hsl(var(--accent)) !important;
+}
+
+[data-lemonade-widget] button[class*="active"],
+[data-lemonade-widget] button[class*="recording"],
+#lemonade-chat-widget button[class*="active"] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+  border-color: hsl(var(--accent)) !important;
+}
+
+/* Input area styling */
+[data-lemonade-widget] [class*="input"],
+[data-lemonade-widget] textarea,
+#lemonade-chat-widget [class*="input"],
+#lemonade-chat-widget textarea {
+  border: 2px solid hsl(var(--foreground)) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.875rem !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+[data-lemonade-widget] [class*="input"]:focus,
+[data-lemonade-widget] textarea:focus,
+#lemonade-chat-widget [class*="input"]:focus,
+#lemonade-chat-widget textarea:focus {
+  outline: none !important;
+  ring: 2px !important;
+  ring-color: hsl(var(--accent)) !important;
+}
+
+/* Timestamps */
+[data-lemonade-widget] [class*="timestamp"],
+[data-lemonade-widget] [class*="time"],
+#lemonade-chat-widget [class*="timestamp"] {
+  font-size: 0.75rem !important;
+  opacity: 0.6 !important;
+  margin-top: 0.25rem !important;
+  display: block !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile optimizations */
+@media (min-width: 768px) {
+  /* Larger text on desktop */
+  [data-lemonade-widget] [class*="message"] [class*="content"],
+  [data-lemonade-widget] [class*="message"] [class*="bubble"],
+  #lemonade-chat-widget [class*="message"] [class*="content"] {
+    font-size: 1rem !important;
+  }
+
+  /* Larger avatar on desktop */
+  [data-lemonade-widget] [class*="bot-message"] [class*="avatar"],
+  [data-lemonade-widget] [class*="bot-message"] img,
+  #lemonade-chat-widget [class*="bot-message"] [class*="avatar"] {
+    width: 3rem !important;
+    height: 3rem !important;
+  }
+
+  /* Wider messages on desktop */
+  [data-lemonade-widget] [class*="message"] [class*="content"],
+  [data-lemonade-widget] [class*="message"] [class*="bubble"],
+  #lemonade-chat-widget [class*="message"] [class*="content"] {
+    max-width: 65% !important;
+  }
+
+  /* Larger buttons on desktop */
+  [data-lemonade-widget] button,
+  #lemonade-chat-widget button {
+    min-height: 60px !important;
+    min-width: 60px !important;
+  }
+}
+
+/* Extra mobile-friendly touch targets */
+@media (max-width: 767px) {
+  [data-lemonade-widget] button,
+  #lemonade-chat-widget button {
+    padding: 0.75rem !important;
+  }
+
+  /* Ensure readable text on small screens */
+  [data-lemonade-widget] [class*="message"],
+  #lemonade-chat-widget [class*="message"] {
+    font-size: 0.875rem !important;
+  }
+}
