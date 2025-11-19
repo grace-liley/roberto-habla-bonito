@@ -1,10 +1,12 @@
 import Header from "@/components/Header";
 import IntroSection from "@/components/IntroSection";
 import ChatInterface from "@/components/ChatInterface";
+import InstallPrompt from "@/components/InstallPrompt";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      <InstallPrompt />
       <Header />
       
       <main role="main">
