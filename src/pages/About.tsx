@@ -118,8 +118,7 @@ const About = () => {
                 Can Roberto translate everything for me?
               </h3>
               <p className="text-muted-foreground">
-                He'll help with basic words (5 words maximum at a time), but immersion is the goal. 
-                The more you try to communicate in Spanish, the faster you'll learn!
+                He'll help with basic words (5 words maximum at a time), but immersion is the goal.
               </p>
             </div>
             
