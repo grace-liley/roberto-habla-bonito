@@ -109,7 +109,7 @@ const About = () => {
                 How does Roberto help me learn?
               </h3>
               <p className="text-muted-foreground">
-                Through conversational practise with a patient, always-available friend. Roberto probably isn't all you need (although he wishes he was) - you'll need to look up words he mentions, you might need some lessons on the side to help you learn verbs, gender agreement and tenses. But he'll be able to get a sense of what you're saying to him. Pretend he's the only person in the world you can talk to and don't give up.
+                Through conversational practice with a patient, always-available friend. Roberto probably isn't all you need (although he wishes he was) - you'll need to look up words he mentions, you might need some lessons on the side to help you learn verbs, gender agreement and tenses. But he'll be able to get a sense of what you're saying to him. Pretend he's the only person in the world you can talk to and don't give up.
               </p>
             </div>
             
