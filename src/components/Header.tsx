@@ -9,15 +9,23 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import robertoAvatar from "@/assets/roberto-avatar.png";
 
 const Header = () => {
   return (
     <header className="sticky top-0 z-50 bg-background border-b border-border px-4 py-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
-        <h1 className="hand-drawn text-2xl md:text-3xl text-foreground">
-          Roberto
-          <span className="block text-base md:text-lg text-muted-foreground">Colombian Tutor</span>
-        </h1>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 md:h-12 md:w-12">
+            <AvatarImage src={robertoAvatar} alt="Roberto" />
+            <AvatarFallback>R</AvatarFallback>
+          </Avatar>
+          <h1 className="hand-drawn text-2xl md:text-3xl text-foreground">
+            Roberto
+            <span className="block text-base md:text-lg text-muted-foreground">Colombian Tutor</span>
+          </h1>
+        </div>
         
         <Sheet>
           <SheetTrigger asChild>
