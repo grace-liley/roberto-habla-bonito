@@ -62,7 +62,7 @@ const About = () => {
             </li>
             <li className="flex gap-3">
               <span className="text-accent font-bold flex-shrink-0">•</span>
-              <span>He can speak up to 5 English words at a time if you get stuck</span>
+              <span>He can speak up to 5 English words at a time. If you get stuck, ask about the word you find confusing. You can ask in Spanish or English, but might need to specify that you want an explanation in English</span>
             </li>
             <li className="flex gap-3">
               <span className="text-accent font-bold flex-shrink-0">•</span>
