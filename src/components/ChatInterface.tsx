@@ -26,16 +26,16 @@ const ChatInterface = () => {
       className="max-w-4xl mx-auto px-4 py-8"
       aria-label="Chat with Roberto"
     >
+      <p className="text-sm text-muted-foreground text-center mb-4 max-w-md mx-auto">
+        One thing: Only press stop when you're ready for the chat to end. If you stop and start the chat again, Roberto won't remember what you were talking about.
+      </p>
+      
       {/* Voice Chat Widget - Script injected here */}
       <div 
         id="lemonade-chat"
         className="w-full min-h-[60vh]"
         aria-label="Voice chat with Roberto"
       />
-      
-      <p className="text-sm text-muted-foreground text-center mt-6 max-w-md mx-auto">
-        One thing: Only press stop when you're ready for the chat to end. If you stop and start the chat again, Roberto won't remember what you were talking about.
-      </p>
     </section>
   );
 };
