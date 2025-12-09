@@ -23,7 +23,7 @@ const Header = () => {
           </Avatar>
           <h1 className="hand-drawn text-2xl md:text-3xl text-foreground">
             Roberto
-            <span className="block text-base md:text-lg text-muted-foreground">Colombian Tutor</span>
+            <span className="block text-base md:text-lg text-muted-foreground">Patient Colombian friend</span>
           </h1>
         </div>
         
