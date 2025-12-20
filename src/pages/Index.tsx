@@ -5,7 +5,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       <InstallPrompt />
       <Header />
       
