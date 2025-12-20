@@ -1,8 +1,11 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
+import { Mic } from "lucide-react";
+import robertoAvatar from "@/assets/roberto-avatar.png";
 
 const ChatInterface = () => {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const isConversationActiveRef = useRef(false);
+  const [widgetLoaded, setWidgetLoaded] = useState(false);
 
   const requestWakeLock = useCallback(async () => {
     if (!('wakeLock' in navigator)) {
@@ -58,6 +61,17 @@ const ChatInterface = () => {
       container.appendChild(script);
     }
 
+    // Check if widget loads content
+    const checkWidgetLoaded = setInterval(() => {
+      if (container && container.children.length > 1) {
+        setWidgetLoaded(true);
+        clearInterval(checkWidgetLoaded);
+      }
+    }, 500);
+
+    // Stop checking after 5 seconds
+    setTimeout(() => clearInterval(checkWidgetLoaded), 5000);
+
     // Add visibility change listener for wake lock re-acquisition
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
@@ -69,6 +83,7 @@ const ChatInterface = () => {
     }
     
     return () => {
+      clearInterval(checkWidgetLoaded);
       if (container && script.parentNode === container) {
         container.removeChild(script);
       }
@@ -88,6 +103,26 @@ const ChatInterface = () => {
       className="max-w-4xl mx-auto px-4 py-4"
       aria-label="Chat with Roberto"
     >
+      {/* Placeholder shown when widget doesn't load (preview/development) */}
+      {!widgetLoaded && (
+        <div className="flex flex-col items-center gap-4 py-8">
+          <img 
+            src={robertoAvatar} 
+            alt="Roberto"
+            className="w-16 h-16 rounded-full border-2 border-foreground object-cover"
+          />
+          
+          <div className="w-16 h-16 rounded-full bg-secondary border-2 border-foreground flex items-center justify-center">
+            <Mic className="w-8 h-8 text-foreground" />
+          </div>
+          
+          <p className="text-xs text-muted-foreground text-center">
+            🎤 Voice widget preview<br/>
+            <span className="text-[10px]">(Only loads on live site)</span>
+          </p>
+        </div>
+      )}
+
       {/* Voice Chat Widget - Script injected here */}
       <div 
         id="lemonade-chat"
