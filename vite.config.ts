@@ -14,8 +14,11 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["icon-192.png", "icon-512.png", "apple-touch-icon.png"],
+      devOptions: {
+        enabled: false,
+      },
       manifest: {
         name: "Roberto - Spanish Tutor",
         short_name: "Roberto",
@@ -41,7 +44,10 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        cleanupOutdatedCaches: true,
+        skipWaiting: false,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -57,7 +63,23 @@ export default defineConfig(({ mode }) => ({
               },
             },
           },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
         ],
+        // Handle navigation requests - always fetch fresh HTML
+        navigateFallback: null,
       },
     }),
   ].filter(Boolean),
