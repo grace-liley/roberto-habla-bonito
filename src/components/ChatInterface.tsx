@@ -85,13 +85,13 @@ const ChatInterface = () => {
   return (
     <section 
       id="chat" 
-      className="max-w-4xl mx-auto px-4 py-8"
+      className="max-w-4xl mx-auto px-4 py-4"
       aria-label="Chat with Roberto"
     >
       {/* Voice Chat Widget - Script injected here */}
       <div 
         id="lemonade-chat"
-        className="w-full min-h-[60vh]"
+        className="w-full"
         aria-label="Voice chat with Roberto"
       />
     </section>
