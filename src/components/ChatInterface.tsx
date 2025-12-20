@@ -1,6 +1,51 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 const ChatInterface = () => {
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const isConversationActiveRef = useRef(false);
+
+  const requestWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) {
+      console.log('Wake Lock API not supported');
+      return;
+    }
+
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request('screen');
+      console.log('Wake lock acquired');
+      
+      wakeLockRef.current.addEventListener('release', () => {
+        console.log('Wake lock released');
+      });
+    } catch (err) {
+      console.log('Wake lock request failed:', err);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (err) {
+        console.log('Wake lock release failed:', err);
+      }
+    }
+  }, []);
+
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible' && isConversationActiveRef.current) {
+      requestWakeLock();
+    }
+  }, [requestWakeLock]);
+
+  const handleUserInteraction = useCallback(() => {
+    if (!isConversationActiveRef.current) {
+      isConversationActiveRef.current = true;
+      requestWakeLock();
+    }
+  }, [requestWakeLock]);
+
   useEffect(() => {
     // Inject the Launch Lemonade script directly into the container
     const script = document.createElement('script');
@@ -12,13 +57,30 @@ const ChatInterface = () => {
     if (container) {
       container.appendChild(script);
     }
+
+    // Add visibility change listener for wake lock re-acquisition
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Add interaction listener to start wake lock on user engagement
+    const chatSection = document.getElementById('chat');
+    if (chatSection) {
+      chatSection.addEventListener('click', handleUserInteraction);
+      chatSection.addEventListener('touchstart', handleUserInteraction);
+    }
     
     return () => {
       if (container && script.parentNode === container) {
         container.removeChild(script);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (chatSection) {
+        chatSection.removeEventListener('click', handleUserInteraction);
+        chatSection.removeEventListener('touchstart', handleUserInteraction);
+      }
+      releaseWakeLock();
+      isConversationActiveRef.current = false;
     };
-  }, []);
+  }, [handleVisibilityChange, handleUserInteraction, releaseWakeLock]);
 
   return (
     <section 
