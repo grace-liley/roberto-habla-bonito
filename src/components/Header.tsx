@@ -35,6 +35,9 @@ const Header = () => {
               <Link to="/about" className="text-lg hover:text-accent transition-colors py-2">
                 About Roberto
               </Link>
+              <Link to="/how-it-works" className="text-lg hover:text-accent transition-colors py-2">
+                How Roberto Works
+              </Link>
               <a href="/#chat" className="text-lg hover:text-accent transition-colors py-2">
                 Start Chatting
               </a>
