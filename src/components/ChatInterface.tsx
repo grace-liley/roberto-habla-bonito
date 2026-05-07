@@ -77,7 +77,10 @@ export default function ChatInterface() {
 
   const speak = (text: string) => {
     window.speechSynthesis.cancel()
+    // Set false BEFORE stopping recognition so onend doesn't immediately restart the mic
+    shouldListenRef.current = false
     recognitionRef.current?.stop()
+    setIsListening(false)
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'es-CO'
     utterance.rate = 0.9
@@ -87,12 +90,12 @@ export default function ChatInterface() {
     utterance.onstart = () => setIsSpeaking(true)
     utterance.onend = () => {
       setIsSpeaking(false)
-      if (shouldListenRef.current) {
-        try {
-          recognitionRef.current?.start()
-          setIsListening(true)
-        } catch (e) {}
-      }
+      // Re-enable mic now Roberto has finished speaking
+      shouldListenRef.current = true
+      try {
+        recognitionRef.current?.start()
+        setIsListening(true)
+      } catch (e) {}
     }
     window.speechSynthesis.speak(utterance)
   }
