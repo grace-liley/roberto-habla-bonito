@@ -18,12 +18,14 @@ export default function ChatInterface() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [liveTranscript, setLiveTranscript] = useState('')
-
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const shouldListenRef = useRef(false)
+  const messagesRef = useRef<Message[]>([])
 
-  // Wake lock
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) {
@@ -34,14 +36,13 @@ export default function ChatInterface() {
     }
   }
 
-  // Speech recognition
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) return
     const recognition = new SR()
-    recognition.continuous = false
+    recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = 'es-CO'
+    recognition.lang = 'es'
 
     recognition.onresult = (event) => {
       const result = event.results[event.results.length - 1]
@@ -49,11 +50,24 @@ export default function ChatInterface() {
       setLiveTranscript(text)
       if (result.isFinal) {
         setLiveTranscript('')
-        sendMessage(text)
+        sendMessage(text, messagesRef.current)
       }
     }
-    recognition.onend = () => setIsListening(false)
-    recognition.onerror = () => setIsListening(false)
+
+    recognition.onend = () => {
+      if (shouldListenRef.current) {
+        try { recognition.start() } catch (e) {}
+      } else {
+        setIsListening(false)
+      }
+    }
+
+    recognition.onerror = (event) => {
+      if ((event as any).error === 'aborted') return
+      shouldListenRef.current = false
+      setIsListening(false)
+    }
+
     recognitionRef.current = recognition
   }, [])
 
@@ -63,6 +77,7 @@ export default function ChatInterface() {
 
   const speak = (text: string) => {
     window.speechSynthesis.cancel()
+    recognitionRef.current?.stop()
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = 'es-CO'
     utterance.rate = 0.9
@@ -70,14 +85,23 @@ export default function ChatInterface() {
     const spanishVoice = voices.find(v => v.lang.startsWith('es'))
     if (spanishVoice) utterance.voice = spanishVoice
     utterance.onstart = () => setIsSpeaking(true)
-    utterance.onend = () => setIsSpeaking(false)
+    utterance.onend = () => {
+      setIsSpeaking(false)
+      if (shouldListenRef.current) {
+        try {
+          recognitionRef.current?.start()
+          setIsListening(true)
+        } catch (e) {}
+      }
+    }
     window.speechSynthesis.speak(utterance)
   }
 
-  const sendMessage = async (text: string, currentMessages = messages) => {
+  const sendMessage = async (text: string, currentMessages: Message[] = messagesRef.current) => {
     if (!text.trim()) return
     const updated: Message[] = [...currentMessages, { role: 'user', content: text }]
     setMessages(updated)
+    messagesRef.current = updated
     setIsLoading(true)
     try {
       const res = await fetch('/api/chat', {
@@ -88,6 +112,7 @@ export default function ChatInterface() {
       const data = await res.json()
       const reply: Message = { role: 'assistant', content: data.content }
       setMessages(prev => [...prev, reply])
+      messagesRef.current = [...updated, reply]
       speak(data.content)
     } catch {
       console.error('Chat error')
@@ -98,6 +123,7 @@ export default function ChatInterface() {
 
   const startChat = async (selectedMode: Mode) => {
     setMode(selectedMode)
+    shouldListenRef.current = true
     await requestWakeLock()
     setIsLoading(true)
     try {
@@ -109,6 +135,7 @@ export default function ChatInterface() {
       const data = await res.json()
       const opening: Message = { role: 'assistant', content: data.content }
       setMessages([opening])
+      messagesRef.current = [opening]
       speak(data.content)
     } catch {
       console.error('Start error')
@@ -119,10 +146,13 @@ export default function ChatInterface() {
 
   const toggleListening = () => {
     if (isListening) {
+      shouldListenRef.current = false
       recognitionRef.current?.stop()
+      setIsListening(false)
     } else {
-      recognitionRef.current?.start()
+      shouldListenRef.current = true
       setIsListening(true)
+      try { recognitionRef.current?.start() } catch (e) {}
       requestWakeLock()
     }
   }
@@ -134,7 +164,6 @@ export default function ChatInterface() {
     return 'Tap the mic to speak'
   }
 
-  // Mode selection
   if (!mode) {
     return (
       <div className="flex flex-col items-center gap-6 py-8 px-4">
@@ -148,7 +177,7 @@ export default function ChatInterface() {
           >
             <p className="font-medium text-sm">Immersion mode</p>
             <p className="text-xs text-muted-foreground mt-1">
-              No transcript — closest to a real conversation
+              No transcript â closest to a real conversation
             </p>
           </button>
           <button
@@ -167,8 +196,6 @@ export default function ChatInterface() {
 
   return (
     <div className="flex flex-col items-center gap-4 py-4 px-4 w-full">
-
-      {/* Study mode: full transcript */}
       {mode === 'study' && (
         <div className="w-full max-w-lg space-y-3 max-h-72 overflow-y-auto">
           {messages.map((msg, i) => (
@@ -193,7 +220,6 @@ export default function ChatInterface() {
         </div>
       )}
 
-      {/* Immersion mode: show Roberto's last message only */}
       {mode === 'immersion' && messages.length > 0 && (
         <div className="w-full max-w-lg">
           <div className="rounded-2xl px-4 py-3 bg-secondary text-foreground text-sm leading-relaxed">
@@ -202,10 +228,8 @@ export default function ChatInterface() {
         </div>
       )}
 
-      {/* Status */}
       <p className="text-xs text-muted-foreground">{statusText()}</p>
 
-      {/* Mic button */}
       <button
         onClick={toggleListening}
         disabled={isLoading || isSpeaking}
@@ -218,10 +242,8 @@ export default function ChatInterface() {
         {isListening ? <MicOff size={28} /> : <Mic size={28} />}
       </button>
 
-      {/* Screen tip */}
       <p className="text-xs text-muted-foreground text-center max-w-xs">
-        For the best experience, keep your screen on while chatting.
-        On iPhone: Settings → Display & Brightness → Auto-Lock → Never
+        For the best experience, keep your screen on while chatting. On iPhone: Settings â Display & Brightness â Auto-Lock â Never
       </p>
     </div>
   )
