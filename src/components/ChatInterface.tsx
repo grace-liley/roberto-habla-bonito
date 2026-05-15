@@ -198,7 +198,7 @@ export default function ChatInterface() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [] }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'Hola' }] }),
       })
       const data = await res.json()
       const opening: Message = { role: 'assistant', content: data.content }
