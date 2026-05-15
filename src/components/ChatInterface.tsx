@@ -191,25 +191,8 @@ export default function ChatInterface() {
 
   const startChat = async (selectedMode: Mode) => {
     setMode(selectedMode)
-    shouldListenRef.current = true
     await requestWakeLock()
-    setIsLoading(true)
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: 'Hola' }] }),
-      })
-      const data = await res.json()
-      const opening: Message = { role: 'assistant', content: data.content }
-      setMessages([opening])
-      messagesRef.current = [opening]
-      await speak(data.content)
-    } catch {
-      console.error('Start error')
-    } finally {
-      setIsLoading(false)
-    }
+    startRecording()
   }
 
   const toggleListening = () => {
