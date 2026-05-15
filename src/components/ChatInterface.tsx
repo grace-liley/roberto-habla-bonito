@@ -37,6 +37,11 @@ export default function ChatInterface() {
   }
 
   const speak = async (text: string) => {
+    if (!text?.trim()) {
+      shouldListenRef.current = true
+      startRecording()
+      return
+    }
     setIsSpeaking(true)
     shouldListenRef.current = false
 
@@ -167,8 +172,9 @@ export default function ChatInterface() {
 
   const sendMessage = async (text: string, currentMessages: Message[] = messagesRef.current) => {
     if (!text.trim()) return
-    const updated: Message[] = [...currentMessages, { role: 'user', content: text }]
-    setMessages(updated)
+    const validMessages = currentMessages.filter(m => typeof m.content === 'string' && m.content.trim())
+    const updated: Message[] = [...validMessages, { role: 'user', content: text }]
+    setMessages(prev => [...prev.filter(m => typeof m.content === 'string' && m.content.trim()), { role: 'user', content: text }])
     messagesRef.current = updated
     setIsLoading(true)
     try {
@@ -177,13 +183,17 @@ export default function ChatInterface() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updated }),
       })
+      if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
       const data = await res.json()
+      if (!data.content) throw new Error('No content in response')
       const reply: Message = { role: 'assistant', content: data.content }
       setMessages(prev => [...prev, reply])
       messagesRef.current = [...updated, reply]
       await speak(data.content)
-    } catch {
-      console.error('Chat error')
+    } catch (error) {
+      console.error('Chat error', error)
+      shouldListenRef.current = true
+      startRecording()
     } finally {
       setIsLoading(false)
     }
