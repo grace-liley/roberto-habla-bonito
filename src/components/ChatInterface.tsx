@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import { Mic, MicOff, Phone } from 'lucide-react'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
+
+const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
+const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
+const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
 
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -19,8 +23,11 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldListenRef = useRef(false)
   const messagesRef = useRef<Message[]>([])
+  const modeRef = useRef<Mode | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
+  useEffect(() => { modeRef.current = mode }, [mode])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -33,6 +40,13 @@ export default function ChatInterface() {
       }
     } catch {
       console.log('Wake lock unavailable')
+    }
+  }
+
+  const closeAudioContext = () => {
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
     }
   }
 
@@ -50,6 +64,7 @@ export default function ChatInterface() {
       audioChunksRef.current = []
       mediaRecorderRef.current.stop()
     }
+    closeAudioContext()
     streamRef.current?.getTracks().forEach(track => track.stop())
     setIsListening(false)
 
@@ -112,6 +127,7 @@ export default function ChatInterface() {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop())
+        closeAudioContext()
         const chunks = audioChunksRef.current
         if (chunks.length === 0) return // discarded by speak()
         const audioBlob = new Blob(chunks, { type: mimeType })
@@ -123,6 +139,46 @@ export default function ChatInterface() {
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
       setIsListening(true)
+
+      // Silence detection — immersion mode only
+      if (modeRef.current === 'immersion') {
+        const audioContext = new AudioContext()
+        audioContextRef.current = audioContext
+        const analyser = audioContext.createAnalyser()
+        const source = audioContext.createMediaStreamSource(stream)
+        source.connect(analyser)
+        analyser.fftSize = 512
+        const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+        let speechDetected = false
+        let silenceStart: number | null = null
+        let speechStartTime = 0
+
+        const check = () => {
+          if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return
+          analyser.getByteFrequencyData(dataArray)
+          const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+
+          if (avg > SILENCE_THRESHOLD) {
+            if (!speechDetected) {
+              speechDetected = true
+              speechStartTime = Date.now()
+            }
+            silenceStart = null
+          } else if (speechDetected) {
+            if (!silenceStart) silenceStart = Date.now()
+            const silenceDuration = Date.now() - silenceStart
+            const speechDuration = Date.now() - speechStartTime
+            if (silenceDuration > SILENCE_DURATION && speechDuration > MIN_SPEECH_MS) {
+              stopRecording()
+              return
+            }
+          }
+          requestAnimationFrame(check)
+        }
+        requestAnimationFrame(check)
+      }
+
     } catch (error) {
       console.error('Recording error:', error)
       setIsListening(false)
@@ -131,6 +187,7 @@ export default function ChatInterface() {
 
   const stopRecording = () => {
     shouldListenRef.current = false
+    closeAudioContext()
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop()
       setIsListening(false)
@@ -218,6 +275,7 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
+    if (isListening && modeRef.current === 'immersion') return 'Listening — speak naturally'
     if (isListening) return 'Listening...'
     return 'Tap the mic to speak'
   }
@@ -235,7 +293,7 @@ export default function ChatInterface() {
           >
             <p className="font-medium text-sm">Immersion mode</p>
             <p className="text-xs text-muted-foreground mt-1">
-              No transcript — closest to a real conversation
+              Hands-free — just speak naturally, like a phone call
             </p>
           </button>
           <button
@@ -281,17 +339,31 @@ export default function ChatInterface() {
 
       <p className="text-xs text-muted-foreground">{statusText()}</p>
 
-      <button
-        onClick={toggleListening}
-        disabled={isLoading || isSpeaking}
-        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
-          isListening
-            ? 'bg-orange-400 scale-110 shadow-lg'
-            : 'bg-secondary hover:bg-orange-100'
-        } disabled:opacity-40 disabled:cursor-not-allowed`}
-      >
-        {isListening ? <MicOff size={28} /> : <Mic size={28} />}
-      </button>
+      {mode === 'immersion' ? (
+        <button
+          onClick={isListening ? stopRecording : toggleListening}
+          disabled={isLoading || isSpeaking}
+          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
+            isListening
+              ? 'bg-orange-400 scale-110 shadow-lg animate-pulse'
+              : 'bg-secondary hover:bg-orange-100'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          <Phone size={28} />
+        </button>
+      ) : (
+        <button
+          onClick={toggleListening}
+          disabled={isLoading || isSpeaking}
+          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
+            isListening
+              ? 'bg-orange-400 scale-110 shadow-lg'
+              : 'bg-secondary hover:bg-orange-100'
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          {isListening ? <MicOff size={28} /> : <Mic size={28} />}
+        </button>
+      )}
 
       <p className="text-xs text-muted-foreground text-center max-w-xs">
         For the best experience, keep your screen on while chatting. On iPhone: Settings → Display & Brightness → Auto-Lock → Never
