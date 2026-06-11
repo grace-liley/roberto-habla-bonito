@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Mic, MicOff, Phone } from 'lucide-react'
+import { Mic, MicOff } from 'lucide-react'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
@@ -224,6 +224,10 @@ export default function ChatInterface() {
     } catch (error) {
       console.error('STT error:', error)
       setIsLoading(false)
+      if (modeRef.current === 'immersion') {
+        shouldListenRef.current = true
+        startRecording()
+      }
     }
   }
 
@@ -259,7 +263,58 @@ export default function ChatInterface() {
   const startChat = async (selectedMode: Mode) => {
     setMode(selectedMode)
     await requestWakeLock()
-    startRecording()
+
+    if (selectedMode === 'immersion') {
+      // Trigger Roberto's opening message so he speaks first
+      setIsLoading(true)
+      const trigger: Message = { role: 'user', content: '[inicio]' }
+      messagesRef.current = [trigger]
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [trigger] }),
+        })
+        const data = await res.json()
+        if (data.content) {
+          const reply: Message = { role: 'assistant', content: data.content }
+          messagesRef.current = [trigger, reply]
+          setMessages([reply])
+          setIsLoading(false)
+          await speak(data.content)
+        } else {
+          setIsLoading(false)
+          startRecording()
+        }
+      } catch {
+        setIsLoading(false)
+        startRecording()
+      }
+    } else {
+      startRecording()
+    }
+  }
+
+  const endConversation = () => {
+    shouldListenRef.current = false
+    closeAudioContext()
+    if (mediaRecorderRef.current?.state === 'recording') {
+      audioChunksRef.current = []
+      mediaRecorderRef.current.stop()
+    }
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+    setIsListening(false)
+    setIsSpeaking(false)
+    setIsLoading(false)
+    setMessages([])
+    messagesRef.current = []
+    wakeLockRef.current?.release().catch(() => {})
+    wakeLockRef.current = null
+    setMode(null)
   }
 
   const toggleListening = () => {
@@ -275,8 +330,8 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
-    if (isListening && modeRef.current === 'immersion') return 'Listening — speak naturally'
-    if (isListening) return 'Listening...'
+    if (isListening) return modeRef.current === 'immersion' ? 'Listening — speak naturally' : 'Listening...'
+    if (modeRef.current === 'immersion') return 'Starting...'
     return 'Tap the mic to speak'
   }
 
@@ -340,17 +395,23 @@ export default function ChatInterface() {
       <p className="text-xs text-muted-foreground">{statusText()}</p>
 
       {mode === 'immersion' ? (
-        <button
-          onClick={isListening ? stopRecording : toggleListening}
-          disabled={isLoading || isSpeaking}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
+        <>
+          <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 pointer-events-none ${
             isListening
               ? 'bg-orange-400 scale-110 shadow-lg animate-pulse'
-              : 'bg-secondary hover:bg-orange-100'
-          } disabled:opacity-40 disabled:cursor-not-allowed`}
-        >
-          <Phone size={28} />
-        </button>
+              : isSpeaking
+              ? 'bg-orange-200'
+              : 'bg-secondary'
+          }`}>
+            <Mic size={28} className={isListening ? 'text-white' : 'text-muted-foreground'} />
+          </div>
+          <button
+            onClick={endConversation}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            End conversation
+          </button>
+        </>
       ) : (
         <button
           onClick={toggleListening}
