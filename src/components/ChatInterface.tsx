@@ -4,9 +4,9 @@ import { Mic, MicOff } from 'lucide-react'
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
 
-const SILENCE_THRESHOLD = 8
-const SILENCE_DURATION = 1800
-const MIN_SPEECH_MS = 400
+const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
+const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
+const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
 
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -228,50 +228,6 @@ export default function ChatInterface() {
     }
   }
 
-  // Read an SSE stream from the chat API and return the full accumulated text,
-  // updating the last message in state progressively as tokens arrive.
-  const readStreamingResponse = async (res: Response, initialMessages: Message[]): Promise<string> => {
-    if (!res.body) throw new Error('No response body')
-
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let fullText = ''
-    let lineBuffer = ''
-
-    // Add assistant placeholder
-    setMessages([...initialMessages, { role: 'assistant', content: '' }])
-    setIsLoading(false)
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      lineBuffer += decoder.decode(value, { stream: true })
-      const lines = lineBuffer.split('\n')
-      lineBuffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        const payload = line.slice(6).trim()
-        if (!payload || payload === '[DONE]') continue
-        try {
-          const { text: token } = JSON.parse(payload)
-          if (!token) continue
-          fullText += token
-          setMessages(prev => {
-            const msgs = [...prev]
-            msgs[msgs.length - 1] = { role: 'assistant', content: fullText }
-            return msgs
-          })
-        } catch {
-          // ignore malformed SSE lines
-        }
-      }
-    }
-
-    return fullText
-  }
-
   const sendMessage = async (text: string, currentMessages: Message[] = messagesRef.current) => {
     if (!text.trim()) return
     const validMessages = currentMessages.filter(m => typeof m.content === 'string' && m.content.trim())
@@ -286,13 +242,12 @@ export default function ChatInterface() {
         body: JSON.stringify({ messages: updated }),
       })
       if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
-
-      const content = await readStreamingResponse(res, updated)
-      if (!content) throw new Error('Empty response')
-
-      const reply: Message = { role: 'assistant', content }
+      const data = await res.json()
+      if (!data.content) throw new Error('No content in response')
+      const reply: Message = { role: 'assistant', content: data.content }
+      setMessages(prev => [...prev, reply])
       messagesRef.current = [...updated, reply]
-      await speak(content)
+      await speak(data.content)
     } catch (error) {
       console.error('Chat error', error)
       shouldListenRef.current = true
@@ -317,12 +272,13 @@ export default function ChatInterface() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: [trigger] }),
         })
-        if (!res.ok) throw new Error('Failed')
-
-        const content = await readStreamingResponse(res, [])
-        if (content) {
-          messagesRef.current = [trigger, { role: 'assistant', content }]
-          await speak(content)
+        const data = await res.json()
+        if (data.content) {
+          const reply: Message = { role: 'assistant', content: data.content }
+          messagesRef.current = [trigger, reply]
+          setMessages([reply])
+          setIsLoading(false)
+          await speak(data.content)
         } else {
           setIsLoading(false)
           startRecording()
