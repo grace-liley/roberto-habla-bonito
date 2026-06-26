@@ -4,9 +4,9 @@ import { Mic, MicOff } from 'lucide-react'
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
 
-const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
-const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
-const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
+const SILENCE_THRESHOLD = 8
+const SILENCE_DURATION = 1800
+const MIN_SPEECH_MS = 400
 
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -25,6 +25,9 @@ export default function ChatInterface() {
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const ttsQueueRef = useRef<string[]>([])
+  const ttsPlayingRef = useRef(false)
+  const streamCompleteRef = useRef(false)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => { modeRef.current = mode }, [mode])
@@ -50,29 +53,44 @@ export default function ChatInterface() {
     }
   }
 
-  const speak = async (text: string) => {
-    if (!text?.trim()) {
-      shouldListenRef.current = true
-      startRecording()
+  // Extract complete sentences from a text buffer for sentence-chunked TTS
+  const extractSentences = (buffer: string): { sentences: string[], remaining: string } => {
+    const sentences: string[] = []
+    let remaining = buffer
+    const regex = /^(.*?[.!?])(?=\s|$)/
+    let match
+    while ((match = regex.exec(remaining)) !== null) {
+      const sentence = match[1].trim()
+      if (sentence) sentences.push(sentence)
+      const sliceLen = match[0].length
+      if (sliceLen === 0) break
+      remaining = remaining.slice(sliceLen).trimStart()
+    }
+    return { sentences, remaining }
+  }
+
+  // Play the next sentence in the TTS queue; when empty + stream done, resume listening
+  const playNextInQueue = async () => {
+    if (ttsQueueRef.current.length === 0) {
+      ttsPlayingRef.current = false
+      if (streamCompleteRef.current) {
+        setIsSpeaking(false)
+        if (shouldListenRef.current && modeRef.current === 'immersion') {
+          startRecording()
+        }
+      }
       return
     }
-    setIsSpeaking(true)
-    shouldListenRef.current = false
 
-    // Stop any active recording without transcribing — clear chunks first
-    if (mediaRecorderRef.current?.state === 'recording') {
-      audioChunksRef.current = []
-      mediaRecorderRef.current.stop()
-    }
-    closeAudioContext()
-    streamRef.current?.getTracks().forEach(track => track.stop())
-    setIsListening(false)
+    ttsPlayingRef.current = true
+    const sentence = ttsQueueRef.current.shift()!
+    setIsSpeaking(true)
 
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: sentence }),
       })
 
       if (!res.ok) throw new Error('TTS failed')
@@ -83,26 +101,36 @@ export default function ChatInterface() {
       currentAudioRef.current = audio
 
       const onFinish = () => {
-        setIsSpeaking(false)
         URL.revokeObjectURL(audioUrl)
         currentAudioRef.current = null
-        if (shouldListenRef.current) {
-          startRecording()
-        }
+        playNextInQueue()
       }
 
       audio.onended = onFinish
       audio.onerror = onFinish
-
-      shouldListenRef.current = true
       await audio.play()
-    } catch (error) {
-      console.error('TTS error:', error)
-      setIsSpeaking(false)
-      if (shouldListenRef.current) {
-        startRecording()
-      }
+    } catch {
+      ttsPlayingRef.current = false
+      playNextInQueue()
     }
+  }
+
+  const enqueueSentence = (sentence: string) => {
+    if (!sentence.trim()) return
+    ttsQueueRef.current.push(sentence)
+    if (!ttsPlayingRef.current) {
+      playNextInQueue()
+    }
+  }
+
+  const stopCurrentAudio = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+    ttsQueueRef.current = []
+    ttsPlayingRef.current = false
+    setIsSpeaking(false)
   }
 
   const startRecording = async () => {
@@ -129,7 +157,7 @@ export default function ChatInterface() {
         stream.getTracks().forEach(track => track.stop())
         closeAudioContext()
         const chunks = audioChunksRef.current
-        if (chunks.length === 0) return // discarded by speak()
+        if (chunks.length === 0) return
         const audioBlob = new Blob(chunks, { type: mimeType })
         if (audioBlob.size > 500) {
           await transcribeAndSend(audioBlob)
@@ -140,7 +168,6 @@ export default function ChatInterface() {
       mediaRecorder.start()
       setIsListening(true)
 
-      // Silence detection — immersion mode only
       if (modeRef.current === 'immersion') {
         const audioContext = new AudioContext()
         audioContextRef.current = audioContext
@@ -216,7 +243,6 @@ export default function ChatInterface() {
       if (data.text?.trim()) {
         await sendMessage(data.text, messagesRef.current)
       } else {
-        // Nothing heard — restart mic
         setIsLoading(false)
         shouldListenRef.current = true
         startRecording()
@@ -231,32 +257,122 @@ export default function ChatInterface() {
     }
   }
 
-  const sendMessage = async (text: string, currentMessages: Message[] = messagesRef.current) => {
+  const sendMessage = async (
+    text: string,
+    currentMessages: Message[] = messagesRef.current,
+    hideUserMessage = false
+  ) => {
     if (!text.trim()) return
+
     const validMessages = currentMessages.filter(m => typeof m.content === 'string' && m.content.trim())
     const updated: Message[] = [...validMessages, { role: 'user', content: text }]
-    setMessages(prev => [...prev.filter(m => typeof m.content === 'string' && m.content.trim()), { role: 'user', content: text }])
+
+    if (!hideUserMessage) {
+      setMessages(prev => [
+        ...prev.filter(m => typeof m.content === 'string' && m.content.trim()),
+        { role: 'user', content: text },
+      ])
+    }
     messagesRef.current = updated
     setIsLoading(true)
+
+    // Reset streaming + TTS state
+    ttsQueueRef.current = []
+    ttsPlayingRef.current = false
+    streamCompleteRef.current = false
+    shouldListenRef.current = modeRef.current === 'immersion'
+
+    // Stop any audio and recording in progress
+    stopCurrentAudio()
+    if (mediaRecorderRef.current?.state === 'recording') {
+      audioChunksRef.current = []
+      mediaRecorderRef.current.stop()
+    }
+    closeAudioContext()
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    setIsListening(false)
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updated }),
       })
+
       if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
-      const data = await res.json()
-      if (!data.content) throw new Error('No content in response')
-      const reply: Message = { role: 'assistant', content: data.content }
-      setMessages(prev => [...prev, reply])
-      messagesRef.current = [...updated, reply]
-      await speak(data.content)
+      if (!res.body) throw new Error('No response body')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      let sentenceBuffer = ''
+
+      // Add assistant placeholder — first token will update it
+      if (hideUserMessage) {
+        setMessages([{ role: 'assistant', content: '' }])
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+      }
+      setIsLoading(false)
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split('\n')) {
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6).trim()
+          if (payload === '[DONE]' || !payload) continue
+          try {
+            const { text: token } = JSON.parse(payload)
+            if (!token) continue
+
+            fullText += token
+            sentenceBuffer += token
+
+            // Stream text to screen immediately
+            setMessages(prev => {
+              const msgs = [...prev]
+              msgs[msgs.length - 1] = { role: 'assistant', content: fullText }
+              return msgs
+            })
+
+            // In immersion mode, extract complete sentences and queue for TTS
+            if (modeRef.current === 'immersion') {
+              const extracted = extractSentences(sentenceBuffer)
+              sentenceBuffer = extracted.remaining
+              for (const sentence of extracted.sentences) {
+                enqueueSentence(sentence)
+              }
+            }
+          } catch {
+            // ignore malformed SSE lines
+          }
+        }
+      }
+
+      // Flush any remaining text as the final TTS chunk
+      if (modeRef.current === 'immersion' && sentenceBuffer.trim()) {
+        enqueueSentence(sentenceBuffer.trim())
+      }
+
+      messagesRef.current = [...updated, { role: 'assistant', content: fullText }]
+      streamCompleteRef.current = true
+
+      // If TTS queue already drained before stream finished (e.g. very short reply), start recording now
+      if (modeRef.current === 'immersion' && !ttsPlayingRef.current) {
+        setIsSpeaking(false)
+        if (shouldListenRef.current) startRecording()
+      }
+
     } catch (error) {
       console.error('Chat error', error)
-      shouldListenRef.current = true
-      startRecording()
-    } finally {
       setIsLoading(false)
+      if (modeRef.current === 'immersion') {
+        shouldListenRef.current = true
+        startRecording()
+      }
     }
   }
 
@@ -265,31 +381,7 @@ export default function ChatInterface() {
     await requestWakeLock()
 
     if (selectedMode === 'immersion') {
-      // Trigger Roberto's opening message so he speaks first
-      setIsLoading(true)
-      const trigger: Message = { role: 'user', content: '[inicio]' }
-      messagesRef.current = [trigger]
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [trigger] }),
-        })
-        const data = await res.json()
-        if (data.content) {
-          const reply: Message = { role: 'assistant', content: data.content }
-          messagesRef.current = [trigger, reply]
-          setMessages([reply])
-          setIsLoading(false)
-          await speak(data.content)
-        } else {
-          setIsLoading(false)
-          startRecording()
-        }
-      } catch {
-        setIsLoading(false)
-        startRecording()
-      }
+      await sendMessage('[inicio]', [], true)
     } else {
       startRecording()
     }
@@ -297,18 +389,15 @@ export default function ChatInterface() {
 
   const endConversation = () => {
     shouldListenRef.current = false
+    streamCompleteRef.current = false
     closeAudioContext()
     if (mediaRecorderRef.current?.state === 'recording') {
       audioChunksRef.current = []
       mediaRecorderRef.current.stop()
     }
     streamRef.current?.getTracks().forEach(track => track.stop())
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
-      currentAudioRef.current = null
-    }
+    stopCurrentAudio()
     setIsListening(false)
-    setIsSpeaking(false)
     setIsLoading(false)
     setMessages([])
     messagesRef.current = []
@@ -427,7 +516,7 @@ export default function ChatInterface() {
       )}
 
       <p className="text-xs text-muted-foreground text-center max-w-xs">
-        For the best experience, keep your screen on while chatting. On iPhone: Settings → Display & Brightness → Auto-Lock → Never
+        For the best experience, keep your screen on while chatting. On iPhone: Settings → Display &amp; Brightness → Auto-Lock → Never
       </p>
     </div>
   )

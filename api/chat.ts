@@ -39,18 +39,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     apiKey: process.env.ANTHROPIC_API_KEY,
   })
 
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+
   try {
-    const response = await client.messages.create({
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages,
     })
 
-    const content = response.content[0].type === 'text' ? response.content[0].text : ''
-    return res.status(200).json({ content })
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        res.write(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+      }
+    }
+
+    res.write('data: [DONE]\n\n')
+    res.end()
   } catch (error) {
     console.error('Claude API error:', error)
-    return res.status(500).json({ error: 'Failed to get response' })
+    res.write(`data: ${JSON.stringify({ error: 'Failed to get response' })}\n\n`)
+    res.end()
   }
 }
