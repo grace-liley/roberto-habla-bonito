@@ -25,9 +25,6 @@ export default function ChatInterface() {
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const ttsQueueRef = useRef<string[]>([])
-  const ttsPlayingRef = useRef(false)
-  const streamCompleteRef = useRef(false)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => { modeRef.current = mode }, [mode])
@@ -53,44 +50,28 @@ export default function ChatInterface() {
     }
   }
 
-  // Extract complete sentences from a text buffer for sentence-chunked TTS
-  const extractSentences = (buffer: string): { sentences: string[], remaining: string } => {
-    const sentences: string[] = []
-    let remaining = buffer
-    const regex = /^(.*?[.!?])(?=\s|$)/
-    let match
-    while ((match = regex.exec(remaining)) !== null) {
-      const sentence = match[1].trim()
-      if (sentence) sentences.push(sentence)
-      const sliceLen = match[0].length
-      if (sliceLen === 0) break
-      remaining = remaining.slice(sliceLen).trimStart()
-    }
-    return { sentences, remaining }
-  }
-
-  // Play the next sentence in the TTS queue; when empty + stream done, resume listening
-  const playNextInQueue = async () => {
-    if (ttsQueueRef.current.length === 0) {
-      ttsPlayingRef.current = false
-      if (streamCompleteRef.current) {
-        setIsSpeaking(false)
-        if (shouldListenRef.current && modeRef.current === 'immersion') {
-          startRecording()
-        }
-      }
+  const speak = async (text: string) => {
+    if (!text?.trim()) {
+      shouldListenRef.current = true
+      startRecording()
       return
     }
-
-    ttsPlayingRef.current = true
-    const sentence = ttsQueueRef.current.shift()!
     setIsSpeaking(true)
+    shouldListenRef.current = false
+
+    if (mediaRecorderRef.current?.state === 'recording') {
+      audioChunksRef.current = []
+      mediaRecorderRef.current.stop()
+    }
+    closeAudioContext()
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    setIsListening(false)
 
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sentence }),
+        body: JSON.stringify({ text }),
       })
 
       if (!res.ok) throw new Error('TTS failed')
@@ -101,36 +82,26 @@ export default function ChatInterface() {
       currentAudioRef.current = audio
 
       const onFinish = () => {
+        setIsSpeaking(false)
         URL.revokeObjectURL(audioUrl)
         currentAudioRef.current = null
-        playNextInQueue()
+        if (shouldListenRef.current) {
+          startRecording()
+        }
       }
 
       audio.onended = onFinish
       audio.onerror = onFinish
+
+      shouldListenRef.current = true
       await audio.play()
-    } catch {
-      ttsPlayingRef.current = false
-      playNextInQueue()
+    } catch (error) {
+      console.error('TTS error:', error)
+      setIsSpeaking(false)
+      if (shouldListenRef.current) {
+        startRecording()
+      }
     }
-  }
-
-  const enqueueSentence = (sentence: string) => {
-    if (!sentence.trim()) return
-    ttsQueueRef.current.push(sentence)
-    if (!ttsPlayingRef.current) {
-      playNextInQueue()
-    }
-  }
-
-  const stopCurrentAudio = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
-      currentAudioRef.current = null
-    }
-    ttsQueueRef.current = []
-    ttsPlayingRef.current = false
-    setIsSpeaking(false)
   }
 
   const startRecording = async () => {
@@ -257,131 +228,109 @@ export default function ChatInterface() {
     }
   }
 
-  const sendMessage = async (
-    text: string,
-    currentMessages: Message[] = messagesRef.current,
-    hideUserMessage = false
-  ) => {
-    if (!text.trim()) return
+  // Read an SSE stream from the chat API and return the full accumulated text,
+  // updating the last message in state progressively as tokens arrive.
+  const readStreamingResponse = async (res: Response, initialMessages: Message[]): Promise<string> => {
+    if (!res.body) throw new Error('No response body')
 
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+    let lineBuffer = ''
+
+    // Add assistant placeholder
+    setMessages([...initialMessages, { role: 'assistant', content: '' }])
+    setIsLoading(false)
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      lineBuffer += decoder.decode(value, { stream: true })
+      const lines = lineBuffer.split('\n')
+      lineBuffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const payload = line.slice(6).trim()
+        if (!payload || payload === '[DONE]') continue
+        try {
+          const { text: token } = JSON.parse(payload)
+          if (!token) continue
+          fullText += token
+          setMessages(prev => {
+            const msgs = [...prev]
+            msgs[msgs.length - 1] = { role: 'assistant', content: fullText }
+            return msgs
+          })
+        } catch {
+          // ignore malformed SSE lines
+        }
+      }
+    }
+
+    return fullText
+  }
+
+  const sendMessage = async (text: string, currentMessages: Message[] = messagesRef.current) => {
+    if (!text.trim()) return
     const validMessages = currentMessages.filter(m => typeof m.content === 'string' && m.content.trim())
     const updated: Message[] = [...validMessages, { role: 'user', content: text }]
-
-    if (!hideUserMessage) {
-      setMessages(prev => [
-        ...prev.filter(m => typeof m.content === 'string' && m.content.trim()),
-        { role: 'user', content: text },
-      ])
-    }
+    setMessages(prev => [...prev.filter(m => typeof m.content === 'string' && m.content.trim()), { role: 'user', content: text }])
     messagesRef.current = updated
     setIsLoading(true)
-
-    // Reset streaming + TTS state
-    ttsQueueRef.current = []
-    ttsPlayingRef.current = false
-    streamCompleteRef.current = false
-    shouldListenRef.current = modeRef.current === 'immersion'
-
-    // Stop any audio and recording in progress
-    stopCurrentAudio()
-    if (mediaRecorderRef.current?.state === 'recording') {
-      audioChunksRef.current = []
-      mediaRecorderRef.current.stop()
-    }
-    closeAudioContext()
-    streamRef.current?.getTracks().forEach(track => track.stop())
-    setIsListening(false)
-
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: updated }),
       })
-
       if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
-      if (!res.body) throw new Error('No response body')
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let sentenceBuffer = ''
+      const content = await readStreamingResponse(res, updated)
+      if (!content) throw new Error('Empty response')
 
-      // Add assistant placeholder — first token will update it
-      if (hideUserMessage) {
-        setMessages([{ role: 'assistant', content: '' }])
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
-      }
-      setIsLoading(false)
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        for (const line of chunk.split('\n')) {
-          if (!line.startsWith('data: ')) continue
-          const payload = line.slice(6).trim()
-          if (payload === '[DONE]' || !payload) continue
-          try {
-            const { text: token } = JSON.parse(payload)
-            if (!token) continue
-
-            fullText += token
-            sentenceBuffer += token
-
-            // Stream text to screen immediately
-            setMessages(prev => {
-              const msgs = [...prev]
-              msgs[msgs.length - 1] = { role: 'assistant', content: fullText }
-              return msgs
-            })
-
-            // In immersion mode, extract complete sentences and queue for TTS
-            if (modeRef.current === 'immersion') {
-              const extracted = extractSentences(sentenceBuffer)
-              sentenceBuffer = extracted.remaining
-              for (const sentence of extracted.sentences) {
-                enqueueSentence(sentence)
-              }
-            }
-          } catch {
-            // ignore malformed SSE lines
-          }
-        }
-      }
-
-      // Flush any remaining text as the final TTS chunk
-      if (modeRef.current === 'immersion' && sentenceBuffer.trim()) {
-        enqueueSentence(sentenceBuffer.trim())
-      }
-
-      messagesRef.current = [...updated, { role: 'assistant', content: fullText }]
-      streamCompleteRef.current = true
-
-      // If TTS queue already drained before stream finished (e.g. very short reply), start recording now
-      if (modeRef.current === 'immersion' && !ttsPlayingRef.current) {
-        setIsSpeaking(false)
-        if (shouldListenRef.current) startRecording()
-      }
-
+      const reply: Message = { role: 'assistant', content }
+      messagesRef.current = [...updated, reply]
+      await speak(content)
     } catch (error) {
       console.error('Chat error', error)
+      shouldListenRef.current = true
+      startRecording()
+    } finally {
       setIsLoading(false)
-      if (modeRef.current === 'immersion') {
-        shouldListenRef.current = true
-        startRecording()
-      }
     }
   }
 
   const startChat = async (selectedMode: Mode) => {
     setMode(selectedMode)
+    modeRef.current = selectedMode
     await requestWakeLock()
 
     if (selectedMode === 'immersion') {
-      await sendMessage('[inicio]', [], true)
+      setIsLoading(true)
+      const trigger: Message = { role: 'user', content: '[inicio]' }
+      messagesRef.current = [trigger]
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: [trigger] }),
+        })
+        if (!res.ok) throw new Error('Failed')
+
+        const content = await readStreamingResponse(res, [])
+        if (content) {
+          messagesRef.current = [trigger, { role: 'assistant', content }]
+          await speak(content)
+        } else {
+          setIsLoading(false)
+          startRecording()
+        }
+      } catch {
+        setIsLoading(false)
+        startRecording()
+      }
     } else {
       startRecording()
     }
@@ -389,15 +338,18 @@ export default function ChatInterface() {
 
   const endConversation = () => {
     shouldListenRef.current = false
-    streamCompleteRef.current = false
     closeAudioContext()
     if (mediaRecorderRef.current?.state === 'recording') {
       audioChunksRef.current = []
       mediaRecorderRef.current.stop()
     }
     streamRef.current?.getTracks().forEach(track => track.stop())
-    stopCurrentAudio()
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
     setIsListening(false)
+    setIsSpeaking(false)
     setIsLoading(false)
     setMessages([])
     messagesRef.current = []
