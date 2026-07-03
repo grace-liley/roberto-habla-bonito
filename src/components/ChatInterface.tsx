@@ -77,7 +77,6 @@ export default function ChatInterface() {
       mediaRecorderRef.current.stop()
     }
     closeAudioContext()
-    streamRef.current?.getTracks().forEach(track => track.stop())
     setIsListening(false)
 
     try {
@@ -122,8 +121,13 @@ export default function ChatInterface() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
+      // Reuse the existing mic stream if still live — requesting a new one
+      // every turn makes Safari re-prompt for permission each time
+      let stream = streamRef.current
+      if (!stream || stream.getTracks().some(track => track.readyState === 'ended')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        streamRef.current = stream
+      }
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -141,7 +145,6 @@ export default function ChatInterface() {
       }
 
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop())
         closeAudioContext()
         const chunks = audioChunksRef.current
         if (chunks.length === 0) return
