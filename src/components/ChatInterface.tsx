@@ -19,6 +19,7 @@ export default function ChatInterface() {
   const audioChunksRef = useRef<Blob[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const sharedAudioRef = useRef<HTMLAudioElement | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const shouldListenRef = useRef(false)
@@ -50,6 +51,18 @@ export default function ChatInterface() {
     }
   }
 
+  // Must be called from a user tap. Playing a silent clip inside the tap
+  // unlocks this audio element so later replies can reuse it — browsers
+  // block play() calls that aren't tied to a user gesture.
+  const unlockAudio = () => {
+    if (sharedAudioRef.current) return
+    const audio = new Audio(
+      'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAAAA'
+    )
+    audio.play().catch(() => {})
+    sharedAudioRef.current = audio
+  }
+
   const speak = async (text: string) => {
     if (!text?.trim()) {
       shouldListenRef.current = true
@@ -78,12 +91,15 @@ export default function ChatInterface() {
 
       const audioBlob = await res.blob()
       const audioUrl = URL.createObjectURL(audioBlob)
-      const audio = new Audio(audioUrl)
+      const audio = sharedAudioRef.current ?? new Audio()
+      audio.src = audioUrl
       currentAudioRef.current = audio
 
       const onFinish = () => {
         setIsSpeaking(false)
         URL.revokeObjectURL(audioUrl)
+        audio.onended = null
+        audio.onerror = null
         currentAudioRef.current = null
         if (shouldListenRef.current) {
           startRecording()
@@ -258,6 +274,7 @@ export default function ChatInterface() {
   }
 
   const startChat = async (selectedMode: Mode) => {
+    unlockAudio()
     setMode(selectedMode)
     modeRef.current = selectedMode
     await requestWakeLock()
@@ -318,6 +335,7 @@ export default function ChatInterface() {
     if (isListening) {
       stopRecording()
     } else {
+      unlockAudio()
       shouldListenRef.current = true
       startRecording()
       requestWakeLock()

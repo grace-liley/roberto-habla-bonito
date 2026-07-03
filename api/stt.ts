@@ -18,6 +18,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const formData = new FormData()
     formData.append('file', blob, 'audio.webm')
     formData.append('model', 'whisper-1')
+    // Bias transcription toward learner speech: imperfect Spanish from an
+    // English speaker, often mixing English words mid-sentence
+    formData.append(
+      'prompt',
+      'Práctica de conversación en español. The speaker is an English-speaking learner practicing imperfect Spanish and may mix in English words or ask questions in English.'
+    )
 
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
