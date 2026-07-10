@@ -65,10 +65,22 @@ export default function ChatInterface() {
     sharedAudioRef.current = audio
   }
 
+  // Mute/unmute the persistent mic stream without releasing it (releasing
+  // would make Safari re-prompt for permission). Muting while Roberto talks
+  // stops iOS ducking playback volume because "the mic is in use".
+  const setMicEnabled = (enabled: boolean) => {
+    streamRef.current?.getAudioTracks().forEach(track => { track.enabled = enabled })
+  }
+
   const speak = async (text: string) => {
+    // Hands-free re-listen is an immersion behaviour; study mode is strictly
+    // tap-to-talk, so the mic must never open itself there
+    const handsFree = modeRef.current === 'immersion'
     if (!text?.trim()) {
-      shouldListenRef.current = true
-      startRecording()
+      if (handsFree) {
+        shouldListenRef.current = true
+        startRecording()
+      }
       return
     }
     setIsSpeaking(true)
@@ -80,6 +92,7 @@ export default function ChatInterface() {
     }
     closeAudioContext()
     setIsListening(false)
+    setMicEnabled(false)
 
     try {
       const res = await fetch('/api/tts', {
@@ -96,8 +109,14 @@ export default function ChatInterface() {
       audio.src = audioUrl
       currentAudioRef.current = audio
 
+      let finished = false
+      let watchdog: ReturnType<typeof setTimeout> | null = null
       const onFinish = () => {
+        if (finished) return
+        finished = true
+        if (watchdog) clearTimeout(watchdog)
         setIsSpeaking(false)
+        setMicEnabled(true)
         URL.revokeObjectURL(audioUrl)
         audio.onended = null
         audio.onerror = null
@@ -109,12 +128,17 @@ export default function ChatInterface() {
 
       audio.onended = onFinish
       audio.onerror = onFinish
+      // Safety net: if playback stalls and neither event ever fires (seen on
+      // iOS Safari), recover instead of leaving the mic button frozen
+      const estimatedMs = Math.max(15000, text.length * 150)
+      watchdog = setTimeout(onFinish, estimatedMs)
 
-      shouldListenRef.current = true
+      shouldListenRef.current = handsFree
       await audio.play()
     } catch (error) {
       console.error('TTS error:', error)
       setIsSpeaking(false)
+      setMicEnabled(true)
       if (shouldListenRef.current) {
         startRecording()
       }
@@ -130,6 +154,8 @@ export default function ChatInterface() {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         streamRef.current = stream
       }
+      // Tracks are muted while Roberto speaks — always unmute before recording
+      stream.getAudioTracks().forEach(track => { track.enabled = true })
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -239,9 +265,13 @@ export default function ChatInterface() {
       if (data.text?.trim()) {
         await sendMessage(data.text, messagesRef.current)
       } else {
+        // Nothing usable heard (silence or a filtered Whisper hallucination).
+        // Immersion resumes listening; study returns to "tap the mic"
         setIsLoading(false)
-        shouldListenRef.current = true
-        startRecording()
+        if (modeRef.current === 'immersion') {
+          shouldListenRef.current = true
+          startRecording()
+        }
       }
     } catch (error) {
       console.error('STT error:', error)
@@ -275,8 +305,10 @@ export default function ChatInterface() {
       await speak(data.content)
     } catch (error) {
       console.error('Chat error', error)
-      shouldListenRef.current = true
-      startRecording()
+      if (modeRef.current === 'immersion') {
+        shouldListenRef.current = true
+        startRecording()
+      }
     } finally {
       setIsLoading(false)
     }
@@ -354,7 +386,7 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
-    if (isListening) return modeRef.current === 'immersion' ? 'Listening — speak naturally' : 'Listening...'
+    if (isListening) return modeRef.current === 'immersion' ? 'Listening — speak naturally' : 'Listening — tap again to send'
     if (modeRef.current === 'immersion') return 'Starting...'
     return 'Tap the mic to speak'
   }
@@ -381,7 +413,7 @@ export default function ChatInterface() {
           >
             <p className="font-medium text-sm">Study mode</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Full transcript saved so you can review afterwards
+              Tap to speak, tap again to send — full transcript saved so you can review afterwards
             </p>
           </button>
         </div>

@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           text,
           model_id: 'eleven_flash_v2_5',
           voice_settings: {
-            stability: 0.5,
+            stability: 0.75, // raised from 0.5 — delivery volume/energy varied noticeably between replies
             similarity_boost: 0.75,
             speed: 0.85,
           },
