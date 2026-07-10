@@ -7,6 +7,7 @@ type Mode = 'immersion' | 'study'
 const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
 const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
 const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
+const MIN_RECORDING_MS = 700   // recordings shorter than this are discarded — too short to contain real speech, and Whisper hallucinates on near-empty audio
 
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -26,6 +27,7 @@ export default function ChatInterface() {
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const recordingStartRef = useRef(0)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => { modeRef.current = mode }, [mode])
@@ -148,13 +150,17 @@ export default function ChatInterface() {
         closeAudioContext()
         const chunks = audioChunksRef.current
         if (chunks.length === 0) return
+        const recordingMs = Date.now() - recordingStartRef.current
         const audioBlob = new Blob(chunks, { type: mimeType })
-        if (audioBlob.size > 500) {
+        // Too-short recordings can't contain real speech — sending them makes
+        // Whisper hallucinate a transcript out of nothing
+        if (recordingMs >= MIN_RECORDING_MS && audioBlob.size > 500) {
           await transcribeAndSend(audioBlob)
         }
       }
 
       mediaRecorderRef.current = mediaRecorder
+      recordingStartRef.current = Date.now()
       mediaRecorder.start()
       setIsListening(true)
 
