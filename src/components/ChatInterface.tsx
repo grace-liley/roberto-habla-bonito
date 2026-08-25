@@ -8,6 +8,9 @@ const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
 const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
 const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
 const MIN_RECORDING_MS = 700   // recordings shorter than this are discarded — too short to contain real speech, and Whisper hallucinates on near-empty audio
+const MAX_RECORDING_MS = 60000 // failsafe: auto-submit if silence detection never triggers (iOS auto-gain can keep room noise above any fixed threshold)
+const CALIBRATION_MS = 300     // sample ambient noise at recording start to set the silence threshold
+const MAX_THRESHOLD = 24       // threshold ceiling so speech during calibration can't push it unreachably high
 
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
@@ -65,13 +68,6 @@ export default function ChatInterface() {
     sharedAudioRef.current = audio
   }
 
-  // Mute/unmute the persistent mic stream without releasing it (releasing
-  // would make Safari re-prompt for permission). Muting while Roberto talks
-  // stops iOS ducking playback volume because "the mic is in use".
-  const setMicEnabled = (enabled: boolean) => {
-    streamRef.current?.getAudioTracks().forEach(track => { track.enabled = enabled })
-  }
-
   const speak = async (text: string) => {
     // Hands-free re-listen is an immersion behaviour; study mode is strictly
     // tap-to-talk, so the mic must never open itself there
@@ -92,7 +88,6 @@ export default function ChatInterface() {
     }
     closeAudioContext()
     setIsListening(false)
-    setMicEnabled(false)
 
     try {
       const res = await fetch('/api/tts', {
@@ -116,7 +111,6 @@ export default function ChatInterface() {
         finished = true
         if (watchdog) clearTimeout(watchdog)
         setIsSpeaking(false)
-        setMicEnabled(true)
         URL.revokeObjectURL(audioUrl)
         audio.onended = null
         audio.onerror = null
@@ -138,7 +132,6 @@ export default function ChatInterface() {
     } catch (error) {
       console.error('TTS error:', error)
       setIsSpeaking(false)
-      setMicEnabled(true)
       if (shouldListenRef.current) {
         startRecording()
       }
@@ -154,8 +147,6 @@ export default function ChatInterface() {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         streamRef.current = stream
       }
-      // Tracks are muted while Roberto speaks — always unmute before recording
-      stream.getAudioTracks().forEach(track => { track.enabled = true })
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -202,13 +193,44 @@ export default function ChatInterface() {
         let speechDetected = false
         let silenceStart: number | null = null
         let speechStartTime = 0
+        const startedAt = Date.now()
+        let ambientSum = 0
+        let ambientCount = 0
+        let calibrated = false
+        let threshold = SILENCE_THRESHOLD
 
         const check = () => {
           if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return
           analyser.getByteFrequencyData(dataArray)
           const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
+          const elapsed = Date.now() - startedAt
 
-          if (avg > SILENCE_THRESHOLD) {
+          // Failsafe: silence detection can fail entirely (iOS auto-gain keeps
+          // room noise reading as speech) — never let a recording run forever
+          if (elapsed > MAX_RECORDING_MS) {
+            stopRecording()
+            return
+          }
+
+          // Calibrate the silence threshold against this room's actual noise
+          // floor — a fixed value fails once iOS cranks the mic gain up
+          if (!calibrated) {
+            if (elapsed < CALIBRATION_MS) {
+              ambientSum += avg
+              ambientCount++
+              requestAnimationFrame(check)
+              return
+            }
+            if (ambientCount > 0) {
+              threshold = Math.min(
+                MAX_THRESHOLD,
+                Math.max(SILENCE_THRESHOLD, (ambientSum / ambientCount) * 1.5 + 4)
+              )
+            }
+            calibrated = true
+          }
+
+          if (avg > threshold) {
             if (!speechDetected) {
               speechDetected = true
               speechStartTime = Date.now()
@@ -386,7 +408,7 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
-    if (isListening) return modeRef.current === 'immersion' ? 'Listening — speak naturally' : 'Listening — tap again to send'
+    if (isListening) return modeRef.current === 'immersion' ? 'Listening — pause when done, or tap to send' : 'Listening — tap again to send'
     if (modeRef.current === 'immersion') return 'Starting...'
     return 'Tap the mic to speak'
   }
@@ -452,15 +474,21 @@ export default function ChatInterface() {
 
       {mode === 'immersion' ? (
         <>
-          <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 pointer-events-none ${
-            isListening
-              ? 'bg-orange-400 scale-110 shadow-lg animate-pulse'
-              : isSpeaking
-              ? 'bg-orange-200'
-              : 'bg-secondary'
-          }`}>
+          {/* Tappable as an escape hatch: if silence detection fails and the
+              mic never stops on its own, a tap sends what was said so far */}
+          <button
+            onClick={() => { if (isListening) stopRecording() }}
+            disabled={!isListening}
+            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-default ${
+              isListening
+                ? 'bg-orange-400 scale-110 shadow-lg animate-pulse'
+                : isSpeaking
+                ? 'bg-orange-200'
+                : 'bg-secondary'
+            }`}
+          >
             <Mic size={28} className={isListening ? 'text-white' : 'text-muted-foreground'} />
-          </div>
+          </button>
           <button
             onClick={endConversation}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
