@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Mic, MicOff } from 'lucide-react'
+import { Mic, Send } from 'lucide-react'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
@@ -18,6 +18,7 @@ export default function ChatInterface() {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [heardNothing, setHeardNothing] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -139,6 +140,7 @@ export default function ChatInterface() {
   }
 
   const startRecording = async () => {
+    setHeardNothing(false)
     try {
       // Reuse the existing mic stream if still live — requesting a new one
       // every turn makes Safari re-prompt for permission each time
@@ -288,8 +290,10 @@ export default function ChatInterface() {
         await sendMessage(data.text, messagesRef.current)
       } else {
         // Nothing usable heard (silence or a filtered Whisper hallucination).
+        // Tell the user — a silent reset feels like the message was ignored.
         // Immersion resumes listening; study returns to "tap the mic"
         setIsLoading(false)
+        setHeardNothing(true)
         if (modeRef.current === 'immersion') {
           shouldListenRef.current = true
           startRecording()
@@ -409,6 +413,7 @@ export default function ChatInterface() {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
     if (isListening) return modeRef.current === 'immersion' ? 'Listening — pause when done, or tap to send' : 'Listening — tap again to send'
+    if (heardNothing) return "No te escuché — tap the mic and try again"
     if (modeRef.current === 'immersion') return 'Starting...'
     return 'Tap the mic to speak'
   }
@@ -506,7 +511,7 @@ export default function ChatInterface() {
               : 'bg-secondary hover:bg-orange-100'
           } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          {isListening ? <MicOff size={28} /> : <Mic size={28} />}
+          {isListening ? <Send size={28} className="text-white" /> : <Mic size={28} />}
         </button>
       )}
 

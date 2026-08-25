@@ -8,7 +8,7 @@ const WHISPER_PROMPT = 'Práctica de español. El estudiante mezcla inglés y es
 
 // Segments Whisper thinks are probably not speech get dropped entirely —
 // these are where hallucinated text (including prompt echoes) comes from.
-const NO_SPEECH_THRESHOLD = 0.6
+const NO_SPEECH_THRESHOLD = 0.75
 
 const normalize = (s: string) =>
   s
@@ -84,6 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!text || isPromptEcho(text)) {
       // Silence or a hallucinated prompt echo — return empty so the client
       // simply listens again instead of sending a fake user message
+      console.log('STT filtered:', JSON.stringify({ raw: data.text, kept: text, segments: segments.map(s => s.no_speech_prob) }))
       return res.status(200).json({ text: '' })
     }
 

@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png", "apple-touch-icon.png"],
       devOptions: {
         enabled: false,
@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
         cleanupOutdatedCaches: true,
-        skipWaiting: false,
+        skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [
           {
