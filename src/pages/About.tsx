@@ -8,9 +8,9 @@ const About = () => {
     <div className="min-h-screen">
       <Header />
 
-      <main role="main" className="panel w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 px-4 py-12 md:py-16">
+      <main role="main" className="w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 space-y-6">
         {/* Section 1: Meet Roberto */}
-        <section className="mb-16">
+        <section className="panel px-4 md:px-8 py-10 md:py-12">
           <h1 className="hand-drawn text-3xl md:text-4xl lg:text-5xl text-foreground text-center mb-6">
             Meet Roberto
           </h1>
@@ -48,47 +48,47 @@ const About = () => {
           </div>
         </section>
 
-        {/* Section 2: Things to Know Before You Chat */}
-        <section className="mb-16">
+        {/* Section 2: Things to Know Before You Chat (Dark Brown panel) */}
+        <section className="panel bg-roberto-dark-brown px-4 md:px-8 py-10 md:py-12">
           <h2 className="hand-drawn text-3xl md:text-4xl lg:text-5xl text-foreground text-center mb-6">
             Things to Know Before You Chat
           </h2>
-          <div className="w-16 h-1 bg-accent mx-auto rounded-full mb-8" aria-hidden="true" />
+          <div className="w-16 h-1 bg-foreground mx-auto rounded-full mb-8" aria-hidden="true" />
           
           <ul className="space-y-4 text-base md:text-lg leading-relaxed max-w-2xl mx-auto">
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>Roberto speaks primarily in Spanish to create an immersive learning experience</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>He can speak up to 5 English words at a time. If you get stuck, ask about the word you find confusing. You can ask in Spanish or English, but might need to specify that you want an explanation in English</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>Take your time - there's no pressure to respond quickly</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>Everything Roberto says is also written down so you can read along</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>You can ask for repetition or clarification anytime</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>Mistakes are part of learning - Roberto never judges</span>
             </li>
             <li className="flex gap-3">
-              <span className="text-accent font-bold flex-shrink-0">•</span>
+              <span className="text-foreground font-bold flex-shrink-0">•</span>
               <span>You've only just met Roberto. Don't tell him anything personal (unless you really want to) but keep in mind he's AI.</span>
             </li>
           </ul>
         </section>
 
         {/* Section 3: FAQ */}
-        <section className="mb-16">
+        <section className="panel px-4 md:px-8 py-10 md:py-12">
           <h2 className="hand-drawn text-3xl md:text-4xl lg:text-5xl text-foreground text-center mb-6">
             Preguntas Frecuentes
           </h2>
@@ -154,7 +154,7 @@ const About = () => {
         </section>
 
         {/* CTA Button */}
-        <div className="text-center">
+        <div className="panel px-4 py-8 text-center">
           <Link to="/">
             <Button 
               size="lg" 
