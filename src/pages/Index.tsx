@@ -9,8 +9,10 @@ const Index = () => {
       <InstallPrompt />
       <Header />
 
-      <main role="main" className="panel w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 py-2 overflow-hidden">
-        <IntroSection />
+      <main role="main" className="w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 space-y-6">
+        <div className="panel">
+          <IntroSection />
+        </div>
         <ChatInterface />
       </main>
 

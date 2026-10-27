@@ -421,7 +421,7 @@ export default function ChatInterface() {
   if (!mode) {
     return (
       <div className="flex flex-col items-center gap-6 py-8 px-4">
-        <p className="text-center text-sm text-muted-foreground max-w-xs">
+        <p className="hand-drawn text-center text-2xl md:text-3xl text-foreground max-w-xs">
           How would you like to chat today?
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -449,7 +449,7 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 py-4 px-4 w-full">
+    <div className="panel flex flex-col items-center gap-4 py-6 px-4 w-full">
       {mode === 'study' && (
         <div className="w-full max-w-lg space-y-3 max-h-72 overflow-y-auto">
           {messages.map((msg, i) => (
