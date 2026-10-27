@@ -48,8 +48,8 @@ const About = () => {
           </div>
         </section>
 
-        {/* Section 2: Things to Know Before You Chat (Dark Brown panel) */}
-        <section className="panel bg-roberto-dark-brown px-4 md:px-8 py-10 md:py-12">
+        {/* Section 2: Things to Know Before You Chat (Light Brown panel) */}
+        <section className="panel bg-roberto-light-brown px-4 md:px-8 py-10 md:py-12">
           <h2 className="hand-drawn text-3xl md:text-4xl lg:text-5xl text-foreground text-center mb-6">
             Things to Know Before You Chat
           </h2>
