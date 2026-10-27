@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import robertoAvatar from "@/assets/roberto-avatar.png";
 const Header = () => {
-  return <header className="sticky top-0 z-50 bg-background border-b-2 border-foreground px-4 py-4">
+  return <header className="relative z-50 px-4 py-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-foreground bg-secondary">
