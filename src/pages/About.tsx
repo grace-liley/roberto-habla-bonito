@@ -5,10 +5,10 @@ import robertoAvatar from "@/assets/roberto-avatar.png";
 
 const About = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
-      
-      <main role="main" className="max-w-4xl mx-auto px-4 py-12 md:py-16">
+
+      <main role="main" className="panel w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 px-4 py-12 md:py-16">
         {/* Section 1: Meet Roberto */}
         <section className="mb-16">
           <h1 className="hand-drawn text-3xl md:text-4xl lg:text-5xl text-foreground text-center mb-6">
@@ -21,7 +21,7 @@ const About = () => {
               <img 
                 src={robertoAvatar} 
                 alt="Roberto the Colombian tutor" 
-                className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover"
+                className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-2 border-foreground bg-secondary"
               />
             </div>
             
@@ -39,7 +39,7 @@ const About = () => {
                 hablo un poco inglese!
               </p>
               
-              <p className="text-accent font-semibold">
+              <p className="text-foreground font-semibold">
                 Está trabajando en usted español, and I am working on myself. 
                 If you have any feedback, please let Grace know and she'll pass it on to me. 
                 I won't take it well if you say it to my face.
@@ -166,7 +166,7 @@ const About = () => {
         </div>
       </main>
       
-      <footer className="border-t border-border mt-16 py-8">
+      <footer className="bg-background border-t-2 border-foreground py-8">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
             Practice makes progress. Don't leave me!

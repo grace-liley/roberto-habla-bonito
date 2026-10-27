@@ -73,9 +73,9 @@ export default function HowItWorks() {
   const [openTopic, setOpenTopic] = useState<number | null>(null)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
-      <div className="px-6 py-16 max-w-2xl mx-auto">
+      <div className="panel w-[calc(100%-2rem)] max-w-2xl mx-auto my-6 px-6 py-16">
         <h1 className="hand-drawn text-4xl text-center mb-14 text-foreground">
           How it works
         </h1>

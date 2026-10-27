@@ -5,16 +5,16 @@ import InstallPrompt from "@/components/InstallPrompt";
 
 const Index = () => {
   return (
-    <div className="bg-background">
+    <div>
       <InstallPrompt />
       <Header />
-      
-      <main role="main">
+
+      <main role="main" className="panel w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 py-2 overflow-hidden">
         <IntroSection />
         <ChatInterface />
       </main>
-      
-      <footer className="border-t border-border mt-4 py-6">
+
+      <footer className="bg-background border-t-2 border-foreground mt-4 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
             Practice makes progress. Don't leave me!

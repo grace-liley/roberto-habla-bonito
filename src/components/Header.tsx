@@ -5,10 +5,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import robertoAvatar from "@/assets/roberto-avatar.png";
 const Header = () => {
-  return <header className="sticky top-0 z-50 bg-background border-b border-border px-4 py-4">
+  return <header className="sticky top-0 z-50 bg-background border-b-2 border-foreground px-4 py-4">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 md:h-12 md:w-12">
+          <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-foreground bg-secondary">
             <AvatarImage src={robertoAvatar} alt="Roberto" />
             <AvatarFallback>R</AvatarFallback>
           </Avatar>
@@ -32,13 +32,13 @@ const Header = () => {
               </SheetDescription>
             </SheetHeader>
             <nav className="mt-8 flex flex-col gap-4" role="navigation" aria-label="Main navigation">
-              <Link to="/about" className="text-lg hover:text-accent transition-colors py-2">
+              <Link to="/about" className="font-daniel text-2xl font-bold underline-offset-4 decoration-accent decoration-2 hover:underline py-2">
                 About Roberto
               </Link>
-              <Link to="/how-it-works" className="text-lg hover:text-accent transition-colors py-2">
+              <Link to="/how-it-works" className="font-daniel text-2xl font-bold underline-offset-4 decoration-accent decoration-2 hover:underline py-2">
                 How Roberto Works
               </Link>
-              <a href="/#chat" className="text-lg hover:text-accent transition-colors py-2">
+              <a href="/#chat" className="font-daniel text-2xl font-bold underline-offset-4 decoration-accent decoration-2 hover:underline py-2">
                 Start Chatting
               </a>
             </nav>

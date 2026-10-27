@@ -427,18 +427,18 @@ export default function ChatInterface() {
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
             onClick={() => startChat('immersion')}
-            className="border rounded-xl p-4 text-left hover:border-orange-400 transition-colors"
+            className="bg-background border-2 border-foreground rounded-2xl p-4 text-left hover:border-accent transition-colors"
           >
-            <p className="font-medium text-sm">Immersion mode</p>
+            <p className="font-daniel font-bold text-xl">Immersion mode</p>
             <p className="text-xs text-muted-foreground mt-1">
               Hands-free — just speak naturally, like a phone call
             </p>
           </button>
           <button
             onClick={() => startChat('study')}
-            className="border rounded-xl p-4 text-left hover:border-orange-400 transition-colors"
+            className="bg-background border-2 border-foreground rounded-2xl p-4 text-left hover:border-accent transition-colors"
           >
-            <p className="font-medium text-sm">Study mode</p>
+            <p className="font-daniel font-bold text-xl">Study mode</p>
             <p className="text-xs text-muted-foreground mt-1">
               Tap to speak, tap again to send — full transcript saved so you can review afterwards
             </p>
@@ -454,10 +454,10 @@ export default function ChatInterface() {
         <div className="w-full max-w-lg space-y-3 max-h-72 overflow-y-auto">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`rounded-2xl px-4 py-2 max-w-xs text-sm leading-relaxed ${
+              <div className={`rounded-2xl px-4 py-2 max-w-xs text-sm leading-relaxed border-2 ${
                 msg.role === 'user'
-                  ? 'bg-orange-400 text-white'
-                  : 'bg-secondary text-foreground'
+                  ? 'bg-accent text-foreground border-foreground'
+                  : 'bg-background text-foreground border-accent'
               }`}>
                 {msg.content}
               </div>
@@ -469,7 +469,7 @@ export default function ChatInterface() {
 
       {mode === 'immersion' && messages.length > 0 && (
         <div className="w-full max-w-lg">
-          <div className="rounded-2xl px-4 py-3 bg-secondary text-foreground text-sm leading-relaxed">
+          <div className="rounded-2xl px-4 py-3 bg-background border-2 border-accent text-foreground text-sm leading-relaxed">
             {[...messages].reverse().find(m => m.role === 'assistant')?.content}
           </div>
         </div>
@@ -484,15 +484,15 @@ export default function ChatInterface() {
           <button
             onClick={() => { if (isListening) stopRecording() }}
             disabled={!isListening}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 disabled:cursor-default ${
+            className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 disabled:cursor-default ${
               isListening
-                ? 'bg-orange-400 scale-110 shadow-lg animate-pulse'
+                ? 'bg-accent scale-110 shadow-lg animate-pulse'
                 : isSpeaking
-                ? 'bg-orange-200'
+                ? 'bg-accent/40'
                 : 'bg-secondary'
             }`}
           >
-            <Mic size={28} className={isListening ? 'text-white' : 'text-muted-foreground'} />
+            <Mic size={28} className="text-foreground" />
           </button>
           <button
             onClick={endConversation}
@@ -505,13 +505,13 @@ export default function ChatInterface() {
         <button
           onClick={toggleListening}
           disabled={isLoading || isSpeaking}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 ${
+          className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 ${
             isListening
-              ? 'bg-orange-400 scale-110 shadow-lg'
-              : 'bg-secondary hover:bg-orange-100'
+              ? 'bg-accent scale-110 shadow-lg'
+              : 'bg-secondary hover:bg-accent/40'
           } disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          {isListening ? <Send size={28} className="text-white" /> : <Mic size={28} />}
+          {isListening ? <Send size={28} className="text-foreground" /> : <Mic size={28} />}
         </button>
       )}
 

@@ -20,17 +20,17 @@ const ChatBubble = ({ message, isRoberto = false, timestamp }: ChatBubbleProps) 
           <img
             src={robertoAvatar}
             alt="Roberto avatar"
-            className="w-full h-full rounded-full border-2 border-foreground object-cover"
+            className="w-full h-full rounded-full border-2 border-foreground bg-secondary object-cover"
           />
         </div>
       )}
       
       <div
         className={cn(
-          "max-w-[75%] md:max-w-[65%] rounded-[var(--chat-bubble-radius)] px-4 py-3 border-2 border-foreground",
+          "max-w-[75%] md:max-w-[65%] rounded-[var(--chat-bubble-radius)] px-4 py-3 border-2",
           isRoberto
-            ? "bg-background text-foreground"
-            : "bg-foreground text-background"
+            ? "bg-background text-foreground border-accent"
+            : "bg-accent text-foreground border-foreground"
         )}
         role="article"
         aria-label={isRoberto ? "Roberto's message" : "Your message"}

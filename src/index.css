@@ -5,39 +5,70 @@
 /* Voice chat widget overrides - temporarily disabled to inspect widget structure */
 /* @import './styles/voice-chat-overrides.css'; */
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Daniel — Roberto's handwriting font (licensed for use by its creator). */
+@font-face {
+  font-family: 'Daniel';
+  src: url('/fonts/daniel.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Daniel';
+  src: url('/fonts/danielbd.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
+
+Roberto palette:
+  Roberto Red          #E9593C  -> 10 80% 57%   (the hat — buttons, outlines, focus)
+  Roberto Dark Brown   #A37954  -> 28 32% 48%   (skin)
+  Roberto Light Brown  #CEAD90  -> 28 39% 69%   (avatar background)
+  Muted Oatmeal        #F4EFEB  -> 27 29% 94%   (page + Roberto's bubbles)
+  True Black           #000000  -> 0 0% 0%      (outlines + text)
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --roberto-red: 10 80% 57%;
+    --roberto-dark-brown: 28 32% 48%;
+    --roberto-light-brown: 28 39% 69%;
+    --roberto-oatmeal: 27 29% 94%;
+
+    --background: 27 29% 94%;
     --foreground: 0 0% 0%;
 
-    --card: 0 0% 100%;
+    --card: 27 29% 94%;
     --card-foreground: 0 0% 0%;
 
-    --popover: 0 0% 100%;
+    --popover: 27 29% 94%;
     --popover-foreground: 0 0% 0%;
 
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary = the red button: red fill, black text */
+    --primary: 10 80% 57%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 96%;
+    --secondary: 28 39% 69%;
     --secondary-foreground: 0 0% 0%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 27 29% 90%;
+    /* A deepened Dark Brown for small secondary text. The pure Dark Brown
+       (#A37954) is only ~3.4:1 on oatmeal, too faint for body-size text. */
+    --muted-foreground: 28 40% 28%;
 
-    --accent: 17 90% 68%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 10 80% 57%;
+    --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 17 100% 61%;
+    --border: 28 39% 69%;
+    --input: 28 39% 69%;
+    --ring: 10 80% 57%;
 
     --radius: 1rem;
 
@@ -56,9 +87,22 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Hand-drawn heading styles */
+  /* Folded graph paper, fixed in place: the page content scrolls over it.
+     (A fixed layer rather than background-attachment: fixed, which iOS Safari ignores.)
+     Tint is baked into the image, so there's no live filter to slow scrolling. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: hsl(var(--background)) url('/paper.jpg') center / cover no-repeat;
+    pointer-events: none;
+  }
+
+  /* Handwritten headings, nav and buttons */
   .hand-drawn {
-    font-family: 'Amatic SC', cursive;
+    font-family: 'Daniel', 'Amatic SC', cursive;
+    font-weight: 700;
     letter-spacing: 0.02em;
     line-height: 1.2;
   }
@@ -74,5 +118,12 @@ All colors MUST be HSL.
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+}
+
+@layer components {
+  /* Content panel that sits over the paper: opaque oatmeal, black outline */
+  .panel {
+    @apply bg-background border-2 border-foreground rounded-3xl;
   }
 }

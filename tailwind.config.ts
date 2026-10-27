@@ -16,8 +16,15 @@ export default {
       fontFamily: {
         sans: ['Open Sans', 'system-ui', 'sans-serif'],
         marker: ['Amatic SC', 'cursive'],
+        daniel: ['Daniel', 'Amatic SC', 'cursive'],
       },
       colors: {
+        roberto: {
+          red: "hsl(var(--roberto-red))",
+          "dark-brown": "hsl(var(--roberto-dark-brown))",
+          "light-brown": "hsl(var(--roberto-light-brown))",
+          oatmeal: "hsl(var(--roberto-oatmeal))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
