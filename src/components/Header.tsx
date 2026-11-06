@@ -1,7 +1,7 @@
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import robertoAvatar from "@/assets/roberto-avatar.png";
 const Header = () => {
@@ -14,7 +14,7 @@ const Header = () => {
           </Avatar>
           <h1 className="hand-drawn text-2xl md:text-3xl text-foreground">
             Roberto
-            <span className="block text-base md:text-lg text-muted-foreground">Your Patient Colombian friend</span>
+            <span className="block text-base md:text-lg text-muted-foreground">Your patient Colombian friend</span>
           </h1>
         </div>
         
@@ -24,17 +24,11 @@ const Header = () => {
               <Menu className="h-6 w-6" strokeWidth={2.5} />
             </Button>
           </SheetTrigger>
-          <SheetContent>
+          <SheetContent aria-describedby={undefined}>
             <SheetHeader>
               <SheetTitle className="hand-drawn text-2xl">Menu</SheetTitle>
-              <SheetDescription>
-                Learn Spanish with Roberto
-              </SheetDescription>
             </SheetHeader>
             <nav className="mt-8 flex flex-col gap-4" role="navigation" aria-label="Main navigation">
-              <Link to="/about" className="font-daniel text-2xl font-bold underline-offset-4 decoration-accent decoration-2 hover:underline py-2">
-                About Roberto
-              </Link>
               <Link to="/how-it-works" className="font-daniel text-2xl font-bold underline-offset-4 decoration-accent decoration-2 hover:underline py-2">
                 How Roberto Works
               </Link>

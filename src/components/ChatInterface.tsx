@@ -413,8 +413,8 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
-    if (isListening) return modeRef.current === 'immersion' ? 'Listening — pause when done, or tap to send' : 'Listening — tap again to send'
-    if (heardNothing) return "No te escuché — tap the mic and try again"
+    if (isListening) return modeRef.current === 'immersion' ? 'Listening... pause when done, or tap to send' : 'Listening... tap again to send'
+    if (heardNothing) return "No te escuché. Tap the mic and try again"
     if (modeRef.current === 'immersion') return 'Starting...'
     return 'Tap the mic to speak'
   }
@@ -432,7 +432,7 @@ export default function ChatInterface() {
           >
             <p className="font-daniel font-bold text-xl">Immersion mode</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Hands-free — just speak naturally, like a phone call
+              Hands-free. Just speak naturally, like a phone call.
             </p>
           </button>
           <button
@@ -441,7 +441,7 @@ export default function ChatInterface() {
           >
             <p className="font-daniel font-bold text-xl">Study mode</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Tap to speak, tap again to send — full transcript saved so you can review afterwards
+              Tap to speak, tap again to send. Full transcript saved so you can review afterwards.
             </p>
           </button>
         </div>
@@ -516,9 +516,6 @@ export default function ChatInterface() {
         </button>
       )}
 
-      <p className="text-xs text-muted-foreground text-center max-w-xs">
-        For the best experience, keep your screen on while chatting. On iPhone: Settings → Display &amp; Brightness → Auto-Lock → Never
-      </p>
     </div>
   )
 }
