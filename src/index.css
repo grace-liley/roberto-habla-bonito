@@ -25,34 +25,34 @@
 All colors MUST be HSL.
 
 Roberto palette:
-  Roberto Red          #E9593C  -> 10 80% 57%   (the hat — buttons, outlines, focus)
-  Roberto Dark Brown   #A37954  -> 28 32% 48%   (skin)
-  Roberto Light Brown  #CEAD90  -> 28 39% 69%   (avatar background)
-  Muted Oatmeal        #F4EFEB  -> 27 29% 94%   (page + Roberto's bubbles)
+  Roberto Red          #E9593C  -> 10.06 79.72% 57.45%   (the hat — buttons, outlines, focus)
+  Roberto Dark Brown   #A37954  -> 28.1 31.98% 48.43%   (skin)
+  Roberto Light Brown  #CEAD90  -> 28.06 38.75% 68.63%   (avatar background)
+  Muted Oatmeal        #F4EFEB  -> 26.67 29.03% 93.92%   (page + Roberto's bubbles)
   True Black           #000000  -> 0 0% 0%      (outlines + text)
 */
 
 @layer base {
   :root {
-    --roberto-red: 10 80% 57%;
-    --roberto-dark-brown: 28 32% 48%;
-    --roberto-light-brown: 28 39% 69%;
-    --roberto-oatmeal: 27 29% 94%;
+    --roberto-red: 10.06 79.72% 57.45%;
+    --roberto-dark-brown: 28.1 31.98% 48.43%;
+    --roberto-light-brown: 28.06 38.75% 68.63%;
+    --roberto-oatmeal: 26.67 29.03% 93.92%;
 
-    --background: 27 29% 94%;
+    --background: 26.67 29.03% 93.92%;
     --foreground: 0 0% 0%;
 
-    --card: 27 29% 94%;
+    --card: 26.67 29.03% 93.92%;
     --card-foreground: 0 0% 0%;
 
-    --popover: 27 29% 94%;
+    --popover: 26.67 29.03% 93.92%;
     --popover-foreground: 0 0% 0%;
 
     /* Primary = the red button: red fill, black text */
-    --primary: 10 80% 57%;
+    --primary: 10.06 79.72% 57.45%;
     --primary-foreground: 0 0% 0%;
 
-    --secondary: 28 39% 69%;
+    --secondary: 28.06 38.75% 68.63%;
     --secondary-foreground: 0 0% 0%;
 
     --muted: 27 29% 90%;
@@ -60,15 +60,15 @@ Roberto palette:
        (#A37954) is only ~3.4:1 on oatmeal, too faint for body-size text. */
     --muted-foreground: 28 40% 28%;
 
-    --accent: 10 80% 57%;
+    --accent: 10.06 79.72% 57.45%;
     --accent-foreground: 0 0% 0%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 28 39% 69%;
-    --input: 28 39% 69%;
-    --ring: 10 80% 57%;
+    --border: 28.06 38.75% 68.63%;
+    --input: 28.06 38.75% 68.63%;
+    --ring: 10.06 79.72% 57.45%;
 
     --radius: 1rem;
 
