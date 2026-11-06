@@ -31,6 +31,40 @@ const isPromptEcho = (transcript: string) => {
   return words.length >= 4 && overlap / words.length > 0.7
 }
 
+// Phrases Whisper invents from silence or noise, learned from video subtitle
+// credits (e.g. "Subtítulos realizados por la comunidad de Amara.org").
+// Matched against normalized text. Kept specific on purpose: "amara" alone is
+// a real Spanish verb form ("si ella me amara"), so only credit wording counts.
+const HALLUCINATION_MARKERS = [
+  'amaraorg',
+  'amara org',
+  'comunidad de amara',
+  'subtitulos realizados por',
+  'subtitulos por la comunidad',
+  'subtitulado por la comunidad',
+  'subtitles by the',
+  'thanks for watching',
+  'thank you for watching',
+  'gracias por ver el video',
+  'suscribete al canal',
+  'no olvides suscribirte',
+  'please subscribe',
+]
+
+// Drop any sentence that is a known hallucination but keep real speech around
+// it — Whisper sometimes tacks a subtitle credit onto genuine audio. Splits only
+// on punctuation followed by a space, so "Amara.org" stays in one piece.
+const stripHallucinations = (transcript: string) =>
+  transcript
+    .replace(/([.!?…])\s+/g, '$1\n')
+    .split('\n')
+    .filter(sentence => {
+      const n = normalize(sentence)
+      return !HALLUCINATION_MARKERS.some(marker => n.includes(marker))
+    })
+    .join(' ')
+    .trim()
+
 type WhisperSegment = { text: string; no_speech_prob: number }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -72,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Keep only segments Whisper is confident contain real speech
     const segments: WhisperSegment[] = data.segments ?? []
-    const text = (
+    const confident = (
       segments.length > 0
         ? segments
             .filter(s => s.no_speech_prob < NO_SPEECH_THRESHOLD)
@@ -80,11 +114,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .join(' ')
         : data.text ?? ''
     ).trim()
+    const text = stripHallucinations(confident)
 
     if (!text || isPromptEcho(text)) {
-      // Silence or a hallucinated prompt echo — return empty so the client
-      // simply listens again instead of sending a fake user message
-      console.log('STT filtered:', JSON.stringify({ raw: data.text, kept: text, segments: segments.map(s => s.no_speech_prob) }))
+      // Silence, a known hallucinated phrase, or a prompt echo — return empty
+      // so the client listens again instead of sending a fake user message
+      console.log('STT filtered:', JSON.stringify({ raw: data.text, confident, kept: text, segments: segments.map(s => s.no_speech_prob) }))
       return res.status(200).json({ text: '' })
     }
 

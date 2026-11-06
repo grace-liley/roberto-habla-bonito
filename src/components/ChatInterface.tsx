@@ -371,9 +371,10 @@ export default function ChatInterface() {
         setIsLoading(false)
         startRecording()
       }
-    } else {
-      startRecording()
     }
+    // Study mode is strictly tap-to-talk: don't open the mic on mode select.
+    // Auto-starting here meant the first mic tap *sent* the silence recorded
+    // so far, and Whisper hallucinated a message out of it.
   }
 
   const endConversation = () => {
