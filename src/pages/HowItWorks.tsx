@@ -77,11 +77,12 @@ const topics = [
     nameEs: "Los barrios",
     questions: [
       { en: "Whereabouts do you live? Do you like it there?", es: "¿Por qué zona vives? ¿Te gusta?" },
-      { en: "Do you leave your neighbourhood often, or do you prefer to stay close to home when you can?", es: "¿Sales mucho de tu barrio o prefieres quedarte cerca de casa cuando puedes?" },
+      { en: "Do you leave your neighbourhood often, or do you prefer to stay close to home, when you can?", es: "¿Sales mucho de tu barrio o prefieres quedarte cerca de casa cuando puedes?" },
       { en: "Does your neighbourhood have any issues that you wish were better?", es: "¿Tu barrio tiene algún problema que desearías que fuera diferente?" },
-      { en: "What is your favourite part of London?", es: "¿Cuál es tu parte favorita de Londres?" },
-      { en: "If you're not from London, is there a place you come from that more people need to know about?", es: "Si no eres de Londres, ¿hay algún lugar de donde vienes que más gente debería conocer?" },
-      { en: "What is your favourite thing about your neighbourhood and what is your least favourite thing?", es: "¿Qué es lo que más te gusta de tu barrio y qué es lo que menos te gusta?" }
+      { en: "What is your favourite part of the city you live in?", es: "¿Cuál es tu parte favorita de la ciudad donde vives?" },
+      { en: "Is there a part of the city or place you come from that more people need to know about?", es: "¿Hay alguna parte de la ciudad, o algún lugar de donde vienes, que más gente debería conocer?" },
+      { en: "Do you wish you lived in a different neighbourhood? Which one?", es: "¿Te gustaría vivir en otro barrio? ¿En cuál?" },
+      { en: "What's an area of London you keep meaning to go and never have?", es: "¿Qué zona de Londres llevas tiempo queriendo visitar y nunca has ido?" }
     ]
   },
   {
