@@ -184,11 +184,11 @@ export default function HowItWorks() {
               <p>
                 Just so you know - I can speak five words in English at a time.
                 If you really need something translated, I can give you some basic help,
-                hablo un poco inglese!
+                hablo un poco inglés!
               </p>
 
               <p className="text-foreground font-semibold">
-                Está trabajando en tu español, and I am working on myself.
+                Estás trabajando en tu español, and I am working on myself.
                 If you have any feedback, please let Grace know and she'll pass it on to me.
                 I won't take it well if you say it to my face.
               </p>
