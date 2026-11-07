@@ -59,7 +59,7 @@ const faqItems: AccordionItem[] = [
     content: "Please get in touch with Grace. Roberto's just doing his best and he doesn't need to hear criticism from someone who barely knows him."
   },
   {
-    title: "How do I get the password Roberto is asking for?",
+    title: "How do I get the password?",
     content: (
       <>
         Register for an event, or email{' '}

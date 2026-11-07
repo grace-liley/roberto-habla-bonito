@@ -1,10 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
+// Password lock: the app sends the password the visitor typed with every
+// request. Anything without the right one is turned away here, before we
+// spend anything on Claude, Whisper or ElevenLabs. The password lives in the
+// ROBERTO_PASSWORD environment variable in Vercel, never in this code.
+// (Copied into each api/ file on purpose: shared imports between Vercel
+// functions are fiddly in this project's setup, and this keeps each one
+// self-contained.)
+function passwordOk(req: VercelRequest): boolean {
+  const clean = (s: string) => s.normalize('NFC').trim().toLowerCase()
+  const expected = clean(process.env.ROBERTO_PASSWORD || '')
+  let given = ''
+  try {
+    given = clean(decodeURIComponent(String(req.headers['x-roberto-password'] || '')))
+  } catch {
+    return false
+  }
+  return expected !== '' && given === expected
+}
+
 const VOICE_ID = 'beQfcCW5PgdTQs4cETaz'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  if (!passwordOk(req)) {
+    return res.status(401).json({ error: 'wrong_password' })
   }
 
   const { text } = req.body

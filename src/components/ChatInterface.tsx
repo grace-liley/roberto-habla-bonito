@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Mic, Send } from 'lucide-react'
 
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -12,6 +12,21 @@ const MAX_RECORDING_MS = 60000 // failsafe: auto-submit if silence detection nev
 const CALIBRATION_MS = 300     // sample ambient noise at recording start to set the silence threshold
 const MAX_THRESHOLD = 24       // threshold ceiling so speech during calibration can't push it unreachably high
 
+// The password is typed once (after picking a mode) and remembered on the
+// device. It's sent with every request and the server checks it before
+// spending anything. 401 is the server's answer when it's missing or wrong.
+const PASSWORD_KEY = 'roberto-password'
+const LOCKED = 401
+const loadSavedPassword = () => {
+  try { return localStorage.getItem(PASSWORD_KEY) || '' } catch { return '' }
+}
+const savePassword = (password: string) => {
+  try { localStorage.setItem(PASSWORD_KEY, password) } catch { /* private browsing: just won't be remembered */ }
+}
+const forgetSavedPassword = () => {
+  try { localStorage.removeItem(PASSWORD_KEY) } catch { /* nothing to forget */ }
+}
+
 export default function ChatInterface() {
   const [mode, setMode] = useState<Mode | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -19,6 +34,19 @@ export default function ChatInterface() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [heardNothing, setHeardNothing] = useState(false)
+
+  // Password step: shown after a mode is picked, until the right password is entered
+  const [pendingMode, setPendingMode] = useState<Mode | null>(null)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [checkingPassword, setCheckingPassword] = useState(false)
+  const passwordRef = useRef<string | null>(null)
+  if (passwordRef.current === null) passwordRef.current = loadSavedPassword()
+
+  const apiHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-roberto-password': encodeURIComponent(passwordRef.current || ''),
+  })
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -93,10 +121,11 @@ export default function ChatInterface() {
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify({ text }),
       })
 
+      if (res.status === LOCKED) { lockedOut(); return }
       if (!res.ok) throw new Error('TTS failed')
 
       const audioBlob = await res.blob()
@@ -281,10 +310,11 @@ export default function ChatInterface() {
 
       const res = await fetch('/api/stt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify({ audioBase64, mimeType: audioBlob.type }),
       })
 
+      if (res.status === LOCKED) { lockedOut(); return }
       const data = await res.json()
       if (data.text?.trim()) {
         await sendMessage(data.text, messagesRef.current)
@@ -319,9 +349,10 @@ export default function ChatInterface() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders(),
         body: JSON.stringify({ messages: updated }),
       })
+      if (res.status === LOCKED) { lockedOut(); return }
       if (!res.ok) throw new Error(`Chat API error: ${res.status}`)
       const data = await res.json()
       if (!data.content) throw new Error('No content in response')
@@ -353,9 +384,10 @@ export default function ChatInterface() {
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiHeaders(),
           body: JSON.stringify({ messages: [trigger] }),
         })
+        if (res.status === LOCKED) { lockedOut(); return }
         const data = await res.json()
         if (data.content) {
           const reply: Message = { role: 'assistant', content: data.content }
@@ -399,6 +431,67 @@ export default function ChatInterface() {
     setMode(null)
   }
 
+  // The server turned a request away: the saved password is wrong or has
+  // been changed. Forget it and ask again, for the same mode.
+  const lockedOut = () => {
+    const lockedMode = modeRef.current
+    passwordRef.current = ''
+    forgetSavedPassword()
+    endConversation()
+    setPasswordInput('')
+    setPasswordError("That password doesn't work any more.")
+    setPendingMode(lockedMode)
+  }
+
+  // Mode buttons: go straight in if this device already has the password,
+  // otherwise show the password step first
+  const chooseMode = (selectedMode: Mode) => {
+    unlockAudio() // inside the tap, before anything async, so Roberto's voice can play later
+    if (passwordRef.current) {
+      startChat(selectedMode)
+      return
+    }
+    setPasswordInput('')
+    setPasswordError('')
+    setPendingMode(selectedMode)
+  }
+
+  const cancelPassword = () => {
+    setPendingMode(null)
+    setPasswordError('')
+  }
+
+  const submitPassword = async (e: FormEvent) => {
+    e.preventDefault()
+    unlockAudio()
+    const attempt = passwordInput.trim()
+    if (!attempt || !pendingMode || checkingPassword) return
+    setCheckingPassword(true)
+    setPasswordError('')
+    try {
+      const res = await fetch('/api/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-roberto-password': encodeURIComponent(attempt) },
+      })
+      if (res.ok) {
+        passwordRef.current = attempt
+        savePassword(attempt)
+        const chosen = pendingMode
+        setPendingMode(null)
+        setPasswordInput('')
+        startChat(chosen)
+      } else if (res.status === LOCKED) {
+        setPasswordError("That's not the password. Try again?")
+      } else {
+        setPasswordError('Something went wrong on our side. Try again in a minute.')
+      }
+    } catch {
+      setPasswordError('Something went wrong. Check your connection and try again.')
+    } finally {
+      setCheckingPassword(false)
+    }
+  }
+
   const toggleListening = () => {
     if (isListening) {
       stopRecording()
@@ -427,7 +520,7 @@ export default function ChatInterface() {
         </p>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           <button
-            onClick={() => startChat('immersion')}
+            onClick={() => chooseMode('immersion')}
             className="bg-background border-2 border-foreground rounded-2xl p-4 text-left hover:border-accent transition-colors"
           >
             <p className="font-daniel font-bold text-xl">Immersion mode</p>
@@ -436,7 +529,7 @@ export default function ChatInterface() {
             </p>
           </button>
           <button
-            onClick={() => startChat('study')}
+            onClick={() => chooseMode('study')}
             className="bg-background border-2 border-foreground rounded-2xl p-4 text-left hover:border-accent transition-colors"
           >
             <p className="font-daniel font-bold text-xl">Study mode</p>
@@ -445,6 +538,58 @@ export default function ChatInterface() {
             </p>
           </button>
         </div>
+
+        {pendingMode && (
+          // A panel inside the page rather than a browser pop-up, so pop-up
+          // blockers never stop it. Tapping outside the card goes back.
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-[18vh]"
+            onClick={cancelPassword}
+          >
+            <form
+              onSubmit={submitPassword}
+              onClick={e => e.stopPropagation()}
+              className="panel w-full max-w-xs p-6 flex flex-col gap-3"
+            >
+              <label htmlFor="roberto-password" className="font-daniel font-bold text-xl">
+                What's the password?
+              </label>
+              <input
+                id="roberto-password"
+                type="text"
+                value={passwordInput}
+                onChange={e => setPasswordInput(e.target.value)}
+                autoFocus
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="bg-background border-2 border-foreground rounded-xl px-3 py-2 text-base focus:outline-none focus:border-accent"
+              />
+              {passwordError && (
+                <p role="alert" className="text-sm font-semibold text-foreground">{passwordError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={checkingPassword || !passwordInput.trim()}
+                className="bg-accent text-foreground border-2 border-foreground rounded-2xl py-2 font-daniel font-bold text-lg disabled:opacity-50"
+              >
+                {checkingPassword ? 'Checking...' : 'Start'}
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Don't have it? Register for an event, or email{' '}
+                <a href="mailto:hola@robertocon.me" className="underline underline-offset-2">hola@robertocon.me</a>
+              </p>
+              <button
+                type="button"
+                onClick={cancelPassword}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 self-center"
+              >
+                Back
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     )
   }
