@@ -20,7 +20,7 @@ const Header = () => {
         
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="touch-target rounded-2xl border-2 border-transparent hover:border-foreground hover:bg-background hover:text-foreground data-[state=open]:border-foreground data-[state=open]:bg-background" aria-label="Open menu">
+            <Button variant="ghost" size="icon" className="touch-target rounded-full border-2 border-transparent hover:border-foreground hover:bg-background hover:text-foreground data-[state=open]:border-foreground data-[state=open]:bg-background" aria-label="Open menu">
               <Menu className="h-6 w-6" strokeWidth={2.5} />
             </Button>
           </SheetTrigger>
