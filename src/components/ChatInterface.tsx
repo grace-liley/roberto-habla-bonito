@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Mic, Send } from 'lucide-react'
+import robertoChat from '@/assets/roberto-chat.png'
 
 type Message = { role: 'user' | 'assistant'; content: string }
 type Mode = 'immersion' | 'study'
@@ -475,6 +476,14 @@ export default function ChatInterface() {
           </div>
         </div>
       )}
+
+      {/* Roberto himself, so it feels like he's right there chatting */}
+      <img
+        src={robertoChat}
+        alt="Roberto"
+        draggable={false}
+        className="w-32 md:w-40 h-auto select-none pointer-events-none"
+      />
 
       <p className="text-xs text-muted-foreground">{statusText()}</p>
 
