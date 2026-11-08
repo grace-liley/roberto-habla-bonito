@@ -9,11 +9,15 @@ const UpdateBanner = () => {
     updateServiceWorker 
   } = usePWAUpdate();
 
+  // Sticky (not fixed) so the banner takes up space at the very top and pushes
+  // the header down instead of sliding underneath it; z-[60] keeps it in front
+  // of the header (z-50) once the page scrolls.
+
   // Show iOS-specific note for standalone PWA users
   if (isIOS && isStandalone && updateAvailable) {
     return (
       <div 
-        className="fixed top-0 left-0 right-0 z-50 bg-accent/95 text-accent-foreground px-4 py-3 text-center text-sm backdrop-blur-sm"
+        className="sticky top-0 z-[60] block w-full bg-accent/95 text-accent-foreground px-4 py-3 text-center text-sm backdrop-blur-sm"
         role="alert"
       >
         <p className="mb-2">🐣 New, de-bugged version available</p>
@@ -29,7 +33,7 @@ const UpdateBanner = () => {
     return (
       <button
         onClick={updateServiceWorker}
-        className="fixed top-0 left-0 right-0 z-50 bg-accent/95 text-accent-foreground px-4 py-3 text-center text-sm backdrop-blur-sm cursor-pointer hover:bg-accent transition-colors touch-target"
+        className="sticky top-0 z-[60] block w-full bg-accent/95 text-accent-foreground px-4 py-3 text-center text-sm backdrop-blur-sm cursor-pointer hover:bg-accent transition-colors touch-target"
         role="alert"
         aria-label="Update available, tap to refresh"
       >
