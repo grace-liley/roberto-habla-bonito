@@ -10,6 +10,11 @@ const Index = () => {
       <Header />
 
       <main role="main" className="w-[calc(100%-2rem)] max-w-4xl mx-auto my-6 space-y-6">
+        {/* Temporary (added 2026-11-08): on iPhones the mic stops working after
+            Roberto's first reply. Remove once the mic fix is live. */}
+        <div role="status" className="bg-secondary border-2 border-foreground rounded-2xl px-4 py-3 text-center text-sm text-foreground">
+          We're working on some settings that help Roberto work better on mobile. For now, it's best if you speak to him on a laptop.
+        </div>
         <div className="panel">
           <IntroSection />
         </div>
