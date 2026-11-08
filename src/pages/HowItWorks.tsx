@@ -120,7 +120,7 @@ const topics = [
   }
 ]
 
-// Each section is its own panel, alternating Light Brown and oatmeal. On Light
+// Each section is its own panel, alternating oatmeal and Light Brown. On Light
 // Brown the usual Light Brown dividers would vanish and the brown secondary
 // text is too faint, so those panels use darker dividers and black text.
 const lightBrownPanel = 'panel bg-roberto-light-brown px-6 py-12'
@@ -174,8 +174,8 @@ export default function HowItWorks() {
 
       <main role="main" className="w-[calc(100%-2rem)] max-w-2xl mx-auto my-6 space-y-6">
         {/* Meet Roberto (moved here from the old About page) */}
-        <section className={lightBrownPanel}>
-          <PanelHeading as="h1" onLightBrown>Meet Roberto</PanelHeading>
+        <section className={oatmealPanel}>
+          <PanelHeading as="h1">Meet Roberto</PanelHeading>
 
           <div className="flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-shrink-0">
@@ -209,14 +209,9 @@ export default function HowItWorks() {
           </div>
         </section>
 
-        <section className={oatmealPanel}>
-          <PanelHeading>How it works</PanelHeading>
-          <Accordion items={howItWorksItems} />
-        </section>
-
         <section className={lightBrownPanel}>
-          <PanelHeading onLightBrown>Preguntas frecuentes</PanelHeading>
-          <Accordion items={faqItems} onLightBrown />
+          <PanelHeading onLightBrown>How it works</PanelHeading>
+          <Accordion items={howItWorksItems} onLightBrown />
         </section>
 
         <section className={oatmealPanel}>
@@ -279,6 +274,11 @@ export default function HowItWorks() {
               )}
             </div>
           ))}
+        </section>
+
+        <section className={lightBrownPanel}>
+          <PanelHeading onLightBrown>Preguntas frecuentes</PanelHeading>
+          <Accordion items={faqItems} onLightBrown />
         </section>
       </main>
     </div>
