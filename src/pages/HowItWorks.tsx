@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import Header from '@/components/Header'
 import robertoAvatar from '@/assets/roberto-avatar.png'
+import { NEXT_EVENT_URL } from '@/lib/nextEvent'
 
 type AccordionItem = { title: string; content: ReactNode }
 
@@ -12,7 +13,24 @@ const howItWorksItems: AccordionItem[] = [
   },
   {
     title: "Come to the event",
-    content: "In the end, language is for connection - with real humans! So come along, get some new perspectives and new friends. (Please note, there will be no event in December. After November, the next one will be January)."
+    content: (
+      <>
+        <p>
+          In the end, language is for connection - with real humans! So come along, get some new perspectives and new friends. (Please note, there will be no event in December. After November, the next one will be January).
+        </p>
+        <p>
+          The next event is happening on 24 November at 6:30pm in London.{' '}
+          <a
+            href={NEXT_EVENT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 decoration-accent decoration-2 hover:text-foreground"
+          >
+            More info and tickets here
+          </a>
+        </p>
+      </>
+    )
   },
   {
     title: "The topic cycle",

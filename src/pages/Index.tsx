@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import IntroSection from "@/components/IntroSection";
 import ChatInterface from "@/components/ChatInterface";
 import InstallPrompt from "@/components/InstallPrompt";
+import { NEXT_EVENT_URL } from "@/lib/nextEvent";
 
 const Index = () => {
   return (
@@ -23,6 +24,14 @@ const Index = () => {
 
       <footer className="bg-background border-t-2 border-foreground mt-4 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center">
+          <a
+            href={NEXT_EVENT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block mb-4 bg-accent text-foreground border-2 border-foreground rounded-2xl px-6 py-2 font-daniel font-bold text-lg hover:scale-105 transition-transform"
+          >
+            Come to the next event
+          </a>
           <p className="text-sm text-muted-foreground">
             Practice makes progress. Don't leave me!
           </p>
