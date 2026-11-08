@@ -11,7 +11,6 @@ const MIN_SPEECH_MS = 400      // ms of speech required before silence detection
 const MIN_RECORDING_MS = 700   // recordings shorter than this are discarded — too short to contain real speech, and Whisper hallucinates on near-empty audio
 const MAX_RECORDING_MS = 30000 // failsafe: auto-submit if silence detection never triggers (iOS auto-gain can keep room noise above any fixed threshold). A learner's turn is rarely this long; 60s felt frozen
 const MAX_AUTO_RETRIES = 2     // immersion: times to quietly reopen a mic the phone shut off, before asking for a tap
-const UNMUTE_WAIT_MS = 1000    // how long to wait for a muted mic to come back before swapping it for a fresh one
 const CALIBRATION_MS = 300     // sample ambient noise at recording start to set the silence threshold
 const MAX_THRESHOLD = 24       // threshold ceiling so speech during calibration can't push it unreachably high
 
@@ -108,31 +107,12 @@ export default function ChatInterface() {
     streamRef.current = null
   }
 
-  // Resolves true once the track is unmuted, or false if it stays muted
-  const waitForUnmute = (track: MediaStreamTrack, ms: number) =>
-    new Promise<boolean>(resolve => {
-      if (!track.muted) return resolve(true)
-      const done = (ok: boolean) => {
-        clearTimeout(timer)
-        track.removeEventListener('unmute', onUnmute)
-        resolve(ok)
-      }
-      const onUnmute = () => done(true)
-      const timer = setTimeout(() => done(!track.muted), ms)
-      track.addEventListener('unmute', onUnmute)
-    })
-
-  // Reuse the open mic when it's healthy: asking for a new one every turn
-  // makes Safari re-prompt for permission. But on iPhone the mic can be muted
-  // just after Roberto has spoken, and recording from it captures pure silence
-  // (Whisper then invents "Subtítulos por la comunidad de Amara.org"). Give it
-  // a moment to come back, and swap it for a fresh one if it doesn't.
-  const getLiveMic = async () => {
-    const current = streamRef.current
-    const track = current?.getAudioTracks()[0]
-    if (current && track && track.readyState === 'live' && await waitForUnmute(track, UNMUTE_WAIT_MS)) {
-      return current
-    }
+  // A fresh mic for every turn, closed again the moment the recording ends,
+  // so Roberto never speaks while it's open. On iPhone, keeping one mic open
+  // while his voice played made the next recording come out empty (every
+  // phone test on 2026-11-08: the first turn worked, the turn after Roberto's
+  // first reply didn't). The trade-off: Safari may ask for the mic more often.
+  const openMic = async () => {
     releaseMic()
     const fresh = await navigator.mediaDevices.getUserMedia({ audio: true })
     streamRef.current = fresh
@@ -203,6 +183,7 @@ export default function ChatInterface() {
     shouldListenRef.current = false
 
     discardRecording()
+    releaseMic() // Roberto must never speak while the mic is open (see openMic)
     closeAudioContext()
     setIsListening(false)
 
@@ -273,7 +254,7 @@ export default function ChatInterface() {
     startingRef.current = true
     setMicStopped(false)
     try {
-      const stream = await getLiveMic()
+      const stream = await openMic()
       // The conversation may have ended while we were waiting for the mic
       if (!modeRef.current) {
         releaseMic()
@@ -311,6 +292,9 @@ export default function ChatInterface() {
         const how = stopModesRef.current.get(mediaRecorder) ?? null
         track?.removeEventListener('mute', onMicLost)
         track?.removeEventListener('ended', onMicLost)
+        // Close this turn's mic straight away (see openMic)
+        stream.getTracks().forEach(t => t.stop())
+        if (streamRef.current === stream) streamRef.current = null
         // A newer recording has already taken over: leave its state alone
         if (mediaRecorderRef.current !== mediaRecorder) return
         mediaRecorderRef.current = null
