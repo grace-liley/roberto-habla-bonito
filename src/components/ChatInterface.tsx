@@ -9,7 +9,9 @@ const SILENCE_THRESHOLD = 8    // audio level (0-255) below which is "silent"
 const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
 const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
 const MIN_RECORDING_MS = 700   // recordings shorter than this are discarded — too short to contain real speech, and Whisper hallucinates on near-empty audio
-const MAX_RECORDING_MS = 60000 // failsafe: auto-submit if silence detection never triggers (iOS auto-gain can keep room noise above any fixed threshold)
+const MAX_RECORDING_MS = 30000 // failsafe: auto-submit if silence detection never triggers (iOS auto-gain can keep room noise above any fixed threshold). A learner's turn is rarely this long; 60s felt frozen
+const MAX_AUTO_RETRIES = 2     // immersion: times to quietly reopen a mic the phone shut off, before asking for a tap
+const UNMUTE_WAIT_MS = 1000    // how long to wait for a muted mic to come back before swapping it for a fresh one
 const CALIBRATION_MS = 300     // sample ambient noise at recording start to set the silence threshold
 const MAX_THRESHOLD = 24       // threshold ceiling so speech during calibration can't push it unreachably high
 
@@ -35,6 +37,7 @@ export default function ChatInterface() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [heardNothing, setHeardNothing] = useState(false)
+  const [micStopped, setMicStopped] = useState(false)
 
   // Password step: shown after a mode is picked, until the right password is entered
   const [pendingMode, setPendingMode] = useState<Mode | null>(null)
@@ -50,7 +53,14 @@ export default function ChatInterface() {
   })
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+  // How each recording should end, noted just before we stop it ourselves.
+  // A recording that stops with no note was stopped by the phone behind our
+  // back (iPhones do this to the mic), and we recover instead of leaving the
+  // button stuck on "listening".
+  const stopModesRef = useRef(new WeakMap<MediaRecorder, 'send' | 'discard'>())
+  const failsafeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const startingRef = useRef(false)
+  const autoRetriesRef = useRef(0)
   const streamRef = useRef<MediaStream | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const sharedAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -60,7 +70,6 @@ export default function ChatInterface() {
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const recordingStartRef = useRef(0)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
   useEffect(() => { modeRef.current = mode }, [mode])
@@ -84,6 +93,87 @@ export default function ChatInterface() {
       audioContextRef.current.close()
       audioContextRef.current = null
     }
+  }
+
+  const clearFailsafe = () => {
+    if (failsafeRef.current) {
+      clearTimeout(failsafeRef.current)
+      failsafeRef.current = null
+    }
+  }
+
+  // Let go of the microphone completely, so the next recording gets a fresh one
+  const releaseMic = () => {
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    streamRef.current = null
+  }
+
+  // Resolves true once the track is unmuted, or false if it stays muted
+  const waitForUnmute = (track: MediaStreamTrack, ms: number) =>
+    new Promise<boolean>(resolve => {
+      if (!track.muted) return resolve(true)
+      const done = (ok: boolean) => {
+        clearTimeout(timer)
+        track.removeEventListener('unmute', onUnmute)
+        resolve(ok)
+      }
+      const onUnmute = () => done(true)
+      const timer = setTimeout(() => done(!track.muted), ms)
+      track.addEventListener('unmute', onUnmute)
+    })
+
+  // Reuse the open mic when it's healthy: asking for a new one every turn
+  // makes Safari re-prompt for permission. But on iPhone the mic can be muted
+  // just after Roberto has spoken, and recording from it captures pure silence
+  // (Whisper then invents "Subtítulos por la comunidad de Amara.org"). Give it
+  // a moment to come back, and swap it for a fresh one if it doesn't.
+  const getLiveMic = async () => {
+    const current = streamRef.current
+    const track = current?.getAudioTracks()[0]
+    if (current && track && track.readyState === 'live' && await waitForUnmute(track, UNMUTE_WAIT_MS)) {
+      return current
+    }
+    releaseMic()
+    const fresh = await navigator.mediaDevices.getUserMedia({ audio: true })
+    streamRef.current = fresh
+    return fresh
+  }
+
+  // Stop the current recording and throw the audio away (Roberto is about to
+  // speak, or the conversation is over)
+  const discardRecording = () => {
+    const recorder = mediaRecorderRef.current
+    if (recorder?.state === 'recording') {
+      stopModesRef.current.set(recorder, 'discard')
+      recorder.stop()
+    }
+  }
+
+  // Nothing usable was recorded. Say so, then: immersion listens again by
+  // itself; study waits for the next tap
+  const nothingHeard = () => {
+    setIsLoading(false)
+    if (!modeRef.current) return // conversation already ended
+    setHeardNothing(true)
+    if (modeRef.current === 'immersion') {
+      shouldListenRef.current = true
+      startRecording()
+    }
+  }
+
+  // The phone shut the mic off on its own. Drop that mic; immersion quietly
+  // tries again with a fresh one a couple of times, then asks for a tap
+  const micWasStopped = () => {
+    console.warn('Mic stopped unexpectedly')
+    releaseMic()
+    if (!modeRef.current) return // conversation already ended
+    if (modeRef.current === 'immersion' && autoRetriesRef.current < MAX_AUTO_RETRIES) {
+      autoRetriesRef.current++
+      shouldListenRef.current = true
+      startRecording()
+      return
+    }
+    setMicStopped(true)
   }
 
   // Must be called from a user tap. Playing a silent clip inside the tap
@@ -112,13 +202,11 @@ export default function ChatInterface() {
     setIsSpeaking(true)
     shouldListenRef.current = false
 
-    if (mediaRecorderRef.current?.state === 'recording') {
-      audioChunksRef.current = []
-      mediaRecorderRef.current.stop()
-    }
+    discardRecording()
     closeAudioContext()
     setIsListening(false)
 
+    let finish: (() => void) | null = null
     try {
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -153,6 +241,7 @@ export default function ChatInterface() {
 
       audio.onended = onFinish
       audio.onerror = onFinish
+      finish = onFinish
       // Safety net: if playback stalls and neither event ever fires (seen on
       // iOS Safari), recover instead of leaving the mic button frozen
       const estimatedMs = Math.max(15000, text.length * 150)
@@ -162,23 +251,35 @@ export default function ChatInterface() {
       await audio.play()
     } catch (error) {
       console.error('TTS error:', error)
+      // If playback was set up, finish through onFinish: it runs only once, so
+      // its watchdog or error event can't open the mic a second time later
+      if (finish) {
+        finish()
+        return
+      }
+      // Roberto's voice failed but his words are on screen: carry on
       setIsSpeaking(false)
-      if (shouldListenRef.current) {
+      if (handsFree) {
+        shouldListenRef.current = true
         startRecording()
       }
     }
   }
 
   const startRecording = async () => {
-    setHeardNothing(false)
+    // Never run two recordings at once: a second one would orphan the first,
+    // leaving the mic on and the button out of step with what's happening
+    if (startingRef.current || mediaRecorderRef.current?.state === 'recording') return
+    startingRef.current = true
+    setMicStopped(false)
     try {
-      // Reuse the existing mic stream if still live — requesting a new one
-      // every turn makes Safari re-prompt for permission each time
-      let stream = streamRef.current
-      if (!stream || stream.getTracks().some(track => track.readyState === 'ended')) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        streamRef.current = stream
+      const stream = await getLiveMic()
+      // The conversation may have ended while we were waiting for the mic
+      if (!modeRef.current) {
+        releaseMic()
+        return
       }
+      const track = stream.getAudioTracks()[0]
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
@@ -187,35 +288,70 @@ export default function ChatInterface() {
         : 'audio/mp4'
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType })
-      audioChunksRef.current = []
+      const chunks: Blob[] = []
+      const startedAt = Date.now()
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
+        if (event.data.size > 0) chunks.push(event.data)
       }
 
-      mediaRecorder.onstop = async () => {
+      // If the phone mutes or ends the mic mid-recording, everything after
+      // that is silence: stop now and recover rather than sit there "listening"
+      const onMicLost = () => {
+        if (mediaRecorder.state === 'recording') mediaRecorder.stop()
+      }
+      track?.addEventListener('mute', onMicLost)
+      track?.addEventListener('ended', onMicLost)
+
+      mediaRecorder.onerror = (event) => console.error('Recorder error:', event)
+
+      // Runs however the recording ends (our stop, the failsafe, or the phone
+      // cutting the mic), so the button can never be left stuck on "listening"
+      mediaRecorder.onstop = () => {
+        const how = stopModesRef.current.get(mediaRecorder) ?? null
+        track?.removeEventListener('mute', onMicLost)
+        track?.removeEventListener('ended', onMicLost)
+        // A newer recording has already taken over: leave its state alone
+        if (mediaRecorderRef.current !== mediaRecorder) return
+        mediaRecorderRef.current = null
+        clearFailsafe()
         closeAudioContext()
-        const chunks = audioChunksRef.current
-        if (chunks.length === 0) return
-        const recordingMs = Date.now() - recordingStartRef.current
+        setIsListening(false)
+
+        if (how === 'discard') return
+        if (how === null) {
+          micWasStopped()
+          return
+        }
+
+        const recordingMs = Date.now() - startedAt
         const audioBlob = new Blob(chunks, { type: mimeType })
         // Too-short recordings can't contain real speech — sending them makes
         // Whisper hallucinate a transcript out of nothing
         if (recordingMs >= MIN_RECORDING_MS && audioBlob.size > 500) {
-          await transcribeAndSend(audioBlob)
+          transcribeAndSend(audioBlob)
+        } else {
+          nothingHeard()
         }
       }
 
       mediaRecorderRef.current = mediaRecorder
-      recordingStartRef.current = Date.now()
       mediaRecorder.start()
       setIsListening(true)
+
+      // Failsafe on a plain timer, not inside the silence-detection loop below
+      // (if that loop ever stalls, it would take the failsafe down with it):
+      // never let a recording run forever
+      failsafeRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current === mediaRecorder) stopRecording()
+      }, MAX_RECORDING_MS)
 
       if (modeRef.current === 'immersion') {
         const audioContext = new AudioContext()
         audioContextRef.current = audioContext
+        // Safari can create this paused when it isn't started by a tap; a
+        // paused one reads as total silence, so the pause is never noticed
+        if (audioContext.state === 'suspended') audioContext.resume().catch(() => {})
         const analyser = audioContext.createAnalyser()
         const source = audioContext.createMediaStreamSource(stream)
         source.connect(analyser)
@@ -225,24 +361,17 @@ export default function ChatInterface() {
         let speechDetected = false
         let silenceStart: number | null = null
         let speechStartTime = 0
-        const startedAt = Date.now()
         let ambientSum = 0
         let ambientCount = 0
         let calibrated = false
         let threshold = SILENCE_THRESHOLD
 
         const check = () => {
-          if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return
+          // Only ever act on this loop's own recording
+          if (mediaRecorderRef.current !== mediaRecorder || mediaRecorder.state !== 'recording') return
           analyser.getByteFrequencyData(dataArray)
           const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length
           const elapsed = Date.now() - startedAt
-
-          // Failsafe: silence detection can fail entirely (iOS auto-gain keeps
-          // room noise reading as speech) — never let a recording run forever
-          if (elapsed > MAX_RECORDING_MS) {
-            stopRecording()
-            return
-          }
 
           // Calibrate the silence threshold against this room's actual noise
           // floor — a fixed value fails once iOS cranks the mic gain up
@@ -285,16 +414,29 @@ export default function ChatInterface() {
     } catch (error) {
       console.error('Recording error:', error)
       setIsListening(false)
+      releaseMic()
+      setMicStopped(true)
+    } finally {
+      startingRef.current = false
     }
   }
 
+  // Stop listening and send what was said. If nothing is actually recording
+  // any more (the phone shut the mic off behind our back), still reset the
+  // button and let go of the mic, so the next tap starts clean
   const stopRecording = () => {
     shouldListenRef.current = false
-    closeAudioContext()
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop()
-      setIsListening(false)
+    const recorder = mediaRecorderRef.current
+    if (recorder?.state === 'recording') {
+      stopModesRef.current.set(recorder, 'send')
+      recorder.stop() // onstop takes it from here
+    } else {
+      mediaRecorderRef.current = null
+      clearFailsafe()
+      closeAudioContext()
+      releaseMic()
     }
+    setIsListening(false)
   }
 
   const transcribeAndSend = async (audioBlob: Blob) => {
@@ -318,25 +460,17 @@ export default function ChatInterface() {
       if (res.status === LOCKED) { lockedOut(); return }
       const data = await res.json()
       if (data.text?.trim()) {
+        setHeardNothing(false)
+        autoRetriesRef.current = 0
         await sendMessage(data.text, messagesRef.current)
       } else {
         // Nothing usable heard (silence or a filtered Whisper hallucination).
-        // Tell the user — a silent reset feels like the message was ignored.
-        // Immersion resumes listening; study returns to "tap the mic"
-        setIsLoading(false)
-        setHeardNothing(true)
-        if (modeRef.current === 'immersion') {
-          shouldListenRef.current = true
-          startRecording()
-        }
+        // Tell the user — a silent reset feels like the message was ignored
+        nothingHeard()
       }
     } catch (error) {
       console.error('STT error:', error)
-      setIsLoading(false)
-      if (modeRef.current === 'immersion') {
-        shouldListenRef.current = true
-        startRecording()
-      }
+      nothingHeard()
     }
   }
 
@@ -412,12 +546,13 @@ export default function ChatInterface() {
 
   const endConversation = () => {
     shouldListenRef.current = false
+    discardRecording()
+    clearFailsafe()
     closeAudioContext()
-    if (mediaRecorderRef.current?.state === 'recording') {
-      audioChunksRef.current = []
-      mediaRecorderRef.current.stop()
-    }
-    streamRef.current?.getTracks().forEach(track => track.stop())
+    releaseMic()
+    setHeardNothing(false)
+    setMicStopped(false)
+    autoRetriesRef.current = 0
     if (currentAudioRef.current) {
       currentAudioRef.current.pause()
       currentAudioRef.current = null
@@ -498,6 +633,8 @@ export default function ChatInterface() {
       stopRecording()
     } else {
       unlockAudio()
+      autoRetriesRef.current = 0
+      setHeardNothing(false)
       shouldListenRef.current = true
       startRecording()
       requestWakeLock()
@@ -507,9 +644,19 @@ export default function ChatInterface() {
   const statusText = () => {
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
-    if (isListening) return modeRef.current === 'immersion' ? 'Listening... pause when done, or tap to send' : 'Listening... tap again to send'
+    if (isListening) {
+      if (modeRef.current !== 'immersion') return 'Listening... tap again to send'
+      // Immersion listens again by itself after an empty recording, so say
+      // so; otherwise it looks like what you said was ignored
+      return heardNothing
+        ? "No te escuché. Try again, I'm listening"
+        : 'Listening... pause when done, or tap to send'
+    }
+    if (micStopped) return 'The mic stopped. Tap it to try again'
     if (heardNothing) return "No te escuché. Tap the mic and try again"
-    if (modeRef.current === 'immersion') return 'Starting...'
+    if (modeRef.current === 'immersion') {
+      return messages.length === 0 ? 'Starting...' : 'Tap the mic to keep talking'
+    }
     return 'Tap the mic to speak'
   }
 
@@ -634,11 +781,14 @@ export default function ChatInterface() {
 
       {mode === 'immersion' ? (
         <>
-          {/* Tappable as an escape hatch: if silence detection fails and the
-              mic never stops on its own, a tap sends what was said so far */}
+          {/* Escape hatches: while listening, a tap sends what was said so far
+              (if silence detection fails and the mic never stops on its own).
+              While idle, a tap starts listening again, so immersion can never
+              be left with a dead mic and nothing to press */}
           <button
-            onClick={() => { if (isListening) stopRecording() }}
-            disabled={!isListening}
+            onClick={toggleListening}
+            disabled={isLoading || isSpeaking}
+            aria-label={isListening ? 'Send' : 'Start listening'}
             className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 disabled:cursor-default ${
               isListening
                 ? 'bg-accent scale-110 shadow-lg animate-pulse'
