@@ -120,13 +120,28 @@ const topics = [
   }
 ]
 
-function Accordion({ items }: { items: AccordionItem[] }) {
+// Each section is its own panel, alternating Light Brown and oatmeal. On Light
+// Brown the usual Light Brown dividers would vanish and the brown secondary
+// text is too faint, so those panels use darker dividers and black text.
+const lightBrownPanel = 'panel bg-roberto-light-brown px-6 py-12'
+const oatmealPanel = 'panel px-6 py-12'
+
+function PanelHeading({ children, onLightBrown = false, as: Tag = 'h2' }: { children: ReactNode; onLightBrown?: boolean; as?: 'h1' | 'h2' }) {
+  return (
+    <>
+      <Tag className="hand-drawn text-4xl text-center mb-6 text-foreground">{children}</Tag>
+      <div className={`w-16 h-1 mx-auto rounded-full mb-8 ${onLightBrown ? 'bg-foreground' : 'bg-accent'}`} aria-hidden="true" />
+    </>
+  )
+}
+
+function Accordion({ items, onLightBrown = false }: { items: AccordionItem[]; onLightBrown?: boolean }) {
   const [open, setOpen] = useState<number | null>(null)
 
   return (
     <>
       {items.map((item, index) => (
-        <div key={index} className="border-b border-border">
+        <div key={index} className={`border-b ${onLightBrown ? 'border-foreground/25' : 'border-border'}`}>
           <button
             className="w-full flex justify-between items-center py-5 text-left"
             onClick={() => setOpen(open === index ? null : index)}
@@ -134,13 +149,13 @@ function Accordion({ items }: { items: AccordionItem[] }) {
             <span className="hand-drawn text-xl text-foreground">{item.title}</span>
             <ChevronDown
               size={18}
-              className={`flex-shrink-0 ml-3 text-muted-foreground transition-transform duration-200 ${
-                open === index ? 'rotate-180' : ''
-              }`}
+              className={`flex-shrink-0 ml-3 transition-transform duration-200 ${
+                onLightBrown ? 'text-foreground' : 'text-muted-foreground'
+              } ${open === index ? 'rotate-180' : ''}`}
             />
           </button>
           {open === index && (
-            <div className="pb-5 space-y-3 text-muted-foreground leading-relaxed text-sm">
+            <div className={`pb-5 space-y-3 leading-relaxed text-sm ${onLightBrown ? 'text-foreground' : 'text-muted-foreground'}`}>
               {item.content}
             </div>
           )}
@@ -159,11 +174,8 @@ export default function HowItWorks() {
 
       <main role="main" className="w-[calc(100%-2rem)] max-w-2xl mx-auto my-6 space-y-6">
         {/* Meet Roberto (moved here from the old About page) */}
-        <section className="panel px-6 py-12">
-          <h1 className="hand-drawn text-4xl text-center mb-6 text-foreground">
-            Meet Roberto
-          </h1>
-          <div className="w-16 h-1 bg-accent mx-auto rounded-full mb-8" aria-hidden="true" />
+        <section className={lightBrownPanel}>
+          <PanelHeading as="h1" onLightBrown>Meet Roberto</PanelHeading>
 
           <div className="flex flex-col md:flex-row gap-8 items-center">
             <div className="flex-shrink-0">
@@ -197,87 +209,77 @@ export default function HowItWorks() {
           </div>
         </section>
 
-        <div className="panel px-6 py-16">
-          <h2 className="hand-drawn text-4xl text-center mb-14 text-foreground">
-            How it works
-          </h2>
+        <section className={oatmealPanel}>
+          <PanelHeading>How it works</PanelHeading>
+          <Accordion items={howItWorksItems} />
+        </section>
 
-          <section className="mb-20">
-            <Accordion items={howItWorksItems} />
-          </section>
+        <section className={lightBrownPanel}>
+          <PanelHeading onLightBrown>Preguntas frecuentes</PanelHeading>
+          <Accordion items={faqItems} onLightBrown />
+        </section>
 
-          <section className="mb-20">
-            <h2 className="hand-drawn text-3xl text-center mb-8 text-foreground">
-              Preguntas frecuentes
-            </h2>
-            <Accordion items={faqItems} />
-          </section>
+        <section className={oatmealPanel}>
+          <PanelHeading>The topics</PanelHeading>
+          <div className="mb-10 space-y-4 text-muted-foreground leading-relaxed text-sm">
+            <p>
+              These topics and questions are meant to make for engaging conversation - setting
+              you up to actually connect with other people and really get something out of the
+              conversation, beyond improving your Spanish.
+            </p>
+            <p className="font-medium text-foreground">
+              Here are the topics that are coming up next:
+            </p>
+          </div>
 
-          {/* Topics section */}
-          <section>
-            <h2 className="hand-drawn text-3xl text-center mb-8 text-foreground">
-              The topics
-            </h2>
-            <div className="mb-10 space-y-4 text-muted-foreground leading-relaxed text-sm">
-              <p>
-                These topics and questions are meant to make for engaging conversation - setting
-                you up to actually connect with other people and really get something out of the
-                conversation, beyond improving your Spanish.
-              </p>
-              <p className="font-medium text-foreground">
-                Here are the topics that are coming up next:
-              </p>
-            </div>
-
-            {topics.map((topic, index) => (
-              <div key={index} className="border-b border-border">
-                <button
-                  className="w-full flex justify-between items-center py-5 text-left"
-                  onClick={() => setOpenTopic(openTopic === index ? null : index)}
-                >
-                  <div className="flex items-baseline gap-3">
-                    <span className="hand-drawn text-xl text-foreground">{topic.name}</span>
-                    <span className="text-muted-foreground italic text-sm">{topic.nameEs}</span>
-                  </div>
-                  <ChevronDown
-                    size={18}
-                    className={`text-muted-foreground transition-transform duration-200 ${
-                      openTopic === index ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {openTopic === index && (
-                  <div className="pb-6 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr>
-                          <th className="text-left pb-3 pr-6 text-muted-foreground font-normal w-1/2">
-                            English
-                          </th>
-                          <th className="text-left pb-3 text-muted-foreground font-normal w-1/2">
-                            Español
-                          </th>
+          {topics.map((topic, index) => (
+            <div key={index} className="border-b border-border">
+              <button
+                className="w-full flex justify-between items-center py-5 text-left"
+                onClick={() => setOpenTopic(openTopic === index ? null : index)}
+              >
+                <div className="flex items-baseline gap-3">
+                  <span className="hand-drawn text-xl text-foreground">{topic.name}</span>
+                  <span className="text-muted-foreground italic text-sm">{topic.nameEs}</span>
+                </div>
+                <ChevronDown
+                  size={18}
+                  className={`text-muted-foreground transition-transform duration-200 ${
+                    openTopic === index ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              {openTopic === index && (
+                <div className="pb-6 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="text-left pb-3 pr-6 text-muted-foreground font-normal w-1/2">
+                          English
+                        </th>
+                        <th className="text-left pb-3 text-muted-foreground font-normal w-1/2">
+                          Español
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topic.questions.map((q, qi) => (
+                        <tr key={qi} className="border-t border-border/50">
+                          <td className="py-2 pr-6 text-foreground align-top leading-relaxed">
+                            {q.en}
+                          </td>
+                          <td className="py-2 text-muted-foreground align-top leading-relaxed">
+                            {q.es}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {topic.questions.map((q, qi) => (
-                          <tr key={qi} className="border-t border-border/50">
-                            <td className="py-2 pr-6 text-foreground align-top leading-relaxed">
-                              {q.en}
-                            </td>
-                            <td className="py-2 text-muted-foreground align-top leading-relaxed">
-                              {q.es}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </section>
-        </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
       </main>
     </div>
   )
