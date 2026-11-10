@@ -35,6 +35,9 @@ export default function ChatInterface() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [heardNothing, setHeardNothing] = useState(false)
+  // Study mode: true once "End conversation" is tapped. Roberto and the mic
+  // stop, but the transcript stays on screen to read back
+  const [studyEnded, setStudyEnded] = useState(false)
 
   // Password step: shown after a mode is picked, until the right password is entered
   const [pendingMode, setPendingMode] = useState<Mode | null>(null)
@@ -59,6 +62,9 @@ export default function ChatInterface() {
   const shouldListenRef = useRef(false)
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
+  // Set when a conversation is ended, so nothing still on its way (a
+  // recording, or Roberto's reply) carries on afterwards
+  const endedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const recordingStartRef = useRef(0)
 
@@ -99,6 +105,7 @@ export default function ChatInterface() {
   }
 
   const speak = async (text: string) => {
+    if (endedRef.current) return // ended while this reply was on its way
     // Hands-free re-listen is an immersion behaviour; study mode is strictly
     // tap-to-talk, so the mic must never open itself there
     const handsFree = modeRef.current === 'immersion'
@@ -196,6 +203,7 @@ export default function ChatInterface() {
       }
 
       mediaRecorder.onstop = async () => {
+        if (endedRef.current) return // conversation ended: don't send this recording
         closeAudioContext()
         const chunks = audioChunksRef.current
         if (chunks.length === 0) return
@@ -373,6 +381,8 @@ export default function ChatInterface() {
   }
 
   const startChat = async (selectedMode: Mode) => {
+    endedRef.current = false
+    setStudyEnded(false)
     unlockAudio()
     setMode(selectedMode)
     modeRef.current = selectedMode
@@ -411,6 +421,8 @@ export default function ChatInterface() {
   }
 
   const endConversation = () => {
+    endedRef.current = true
+    setStudyEnded(false)
     shouldListenRef.current = false
     closeAudioContext()
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -430,6 +442,29 @@ export default function ChatInterface() {
     wakeLockRef.current?.release().catch(() => {})
     wakeLockRef.current = null
     setMode(null)
+  }
+
+  // Study mode's "End conversation": stop Roberto and the mic, but leave the
+  // transcript on screen to read back. "Start a new chat" then clears it.
+  const finishStudy = () => {
+    endedRef.current = true
+    shouldListenRef.current = false
+    if (mediaRecorderRef.current?.state === 'recording') {
+      audioChunksRef.current = []
+      mediaRecorderRef.current.stop()
+    }
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+    setIsListening(false)
+    setIsSpeaking(false)
+    setIsLoading(false)
+    setHeardNothing(false)
+    wakeLockRef.current?.release().catch(() => {})
+    wakeLockRef.current = null
+    setStudyEnded(true)
   }
 
   // The server turned a request away: the saved password is wrong or has
@@ -505,6 +540,7 @@ export default function ChatInterface() {
   }
 
   const statusText = () => {
+    if (studyEnded) return 'Conversation ended. Scroll up to read it back.'
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
     if (isListening) return modeRef.current === 'immersion' ? 'Listening... pause when done, or tap to send' : 'Listening... tap again to send'
@@ -656,18 +692,33 @@ export default function ChatInterface() {
             End conversation
           </button>
         </>
-      ) : (
+      ) : studyEnded ? (
         <button
-          onClick={toggleListening}
-          disabled={isLoading || isSpeaking}
-          className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 ${
-            isListening
-              ? 'bg-accent scale-110 shadow-lg'
-              : 'bg-secondary hover:bg-accent/40'
-          } disabled:opacity-40 disabled:cursor-not-allowed`}
+          onClick={endConversation}
+          className="bg-accent text-foreground border-2 border-foreground rounded-2xl px-6 py-2 font-daniel font-bold text-lg hover:scale-105 transition-transform"
         >
-          {isListening ? <Send size={28} className="text-foreground" /> : <Mic size={28} />}
+          Start a new chat
         </button>
+      ) : (
+        <>
+          <button
+            onClick={toggleListening}
+            disabled={isLoading || isSpeaking}
+            className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 ${
+              isListening
+                ? 'bg-accent scale-110 shadow-lg'
+                : 'bg-secondary hover:bg-accent/40'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {isListening ? <Send size={28} className="text-foreground" /> : <Mic size={28} />}
+          </button>
+          <button
+            onClick={finishStudy}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            End conversation
+          </button>
+        </>
       )}
 
     </div>

@@ -127,6 +127,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data = await response.json()
 
+    // Temporary (2026-11-10): how big each recording is, to check that the
+    // phone's lighter recordings upload faster without hurting what Whisper
+    // hears. Size and length only, never what was said. Remove once settled.
+    const ua = String(req.headers['user-agent'] || '')
+    const seconds = typeof data.duration === 'number' ? data.duration : null
+    console.log('STT audio:', JSON.stringify({
+      device: /iPhone|iPad|Android/i.test(ua) ? 'phone' : 'computer',
+      kb: Math.round(audioBuffer.length / 1024),
+      seconds: seconds ? Math.round(seconds * 10) / 10 : null,
+      kbps: seconds ? Math.round((audioBuffer.length * 8) / seconds / 1000) : null,
+      type: mimeType,
+    }))
+
     // Keep only segments Whisper is confident contain real speech
     const segments: WhisperSegment[] = data.segments ?? []
     const confident = (

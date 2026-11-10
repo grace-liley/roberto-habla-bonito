@@ -17,6 +17,7 @@ const SILENCE_DURATION = 1800  // ms of silence before auto-submitting
 const MIN_SPEECH_MS = 400      // ms of speech required before silence detection kicks in
 const MIN_RECORDING_MS = 700   // recordings shorter than this are discarded — too short to contain real speech, and Whisper hallucinates on near-empty audio
 const MAX_RECORDING_MS = 30000 // failsafe: auto-submit if silence detection never triggers (iOS auto-gain can keep room noise above any fixed threshold). A learner's turn is rarely this long; 60s felt frozen
+const RECORDING_BITRATE = 48000 // bits per second for your recording. Lighter files upload faster from a phone (the upload was the slowest, most variable part of a turn: 1-13s). Still well above voice-note quality, and Whisper converts everything to 16 kHz mono before it listens anyway
 const MAX_AUTO_RETRIES = 2     // immersion: times to quietly reopen a mic the phone shut off, before asking for a tap
 const CALIBRATION_MS = 300     // sample ambient noise at recording start to set the silence threshold
 const MAX_THRESHOLD = 24       // threshold ceiling so speech during calibration can't push it unreachably high
@@ -44,6 +45,9 @@ export default function ChatInterfaceMobile() {
   const [isLoading, setIsLoading] = useState(false)
   const [heardNothing, setHeardNothing] = useState(false)
   const [micStopped, setMicStopped] = useState(false)
+  // Study mode: true once "End conversation" is tapped. Roberto and the mic
+  // stop, but the transcript stays on screen to read back
+  const [studyEnded, setStudyEnded] = useState(false)
 
   // Password step: shown after a mode is picked, until the right password is entered
   const [pendingMode, setPendingMode] = useState<Mode | null>(null)
@@ -75,6 +79,9 @@ export default function ChatInterfaceMobile() {
   const shouldListenRef = useRef(false)
   const messagesRef = useRef<Message[]>([])
   const modeRef = useRef<Mode | null>(null)
+  // Set when a conversation is ended, so nothing still on its way (like
+  // Roberto's reply) carries on afterwards
+  const endedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
@@ -176,6 +183,7 @@ export default function ChatInterfaceMobile() {
   }
 
   const speak = async (text: string) => {
+    if (endedRef.current) return // ended while this reply was on its way
     // Hands-free re-listen is an immersion behaviour; study mode is strictly
     // tap-to-talk, so the mic must never open itself there
     const handsFree = modeRef.current === 'immersion'
@@ -263,7 +271,7 @@ export default function ChatInterfaceMobile() {
     try {
       const stream = await openMic()
       // The conversation may have ended while we were waiting for the mic
-      if (!modeRef.current) {
+      if (!modeRef.current || endedRef.current) {
         releaseMic()
         return
       }
@@ -275,7 +283,7 @@ export default function ChatInterfaceMobile() {
         ? 'audio/webm'
         : 'audio/mp4'
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: RECORDING_BITRATE })
       const chunks: Blob[] = []
       const startedAt = Date.now()
 
@@ -498,6 +506,8 @@ export default function ChatInterfaceMobile() {
   }
 
   const startChat = async (selectedMode: Mode) => {
+    endedRef.current = false
+    setStudyEnded(false)
     unlockAudio()
     setMode(selectedMode)
     modeRef.current = selectedMode
@@ -536,6 +546,8 @@ export default function ChatInterfaceMobile() {
   }
 
   const endConversation = () => {
+    endedRef.current = true
+    setStudyEnded(false)
     shouldListenRef.current = false
     discardRecording()
     clearFailsafe()
@@ -556,6 +568,29 @@ export default function ChatInterfaceMobile() {
     wakeLockRef.current?.release().catch(() => {})
     wakeLockRef.current = null
     setMode(null)
+  }
+
+  // Study mode's "End conversation": stop Roberto and the mic, but leave the
+  // transcript on screen to read back. "Start a new chat" then clears it.
+  const finishStudy = () => {
+    endedRef.current = true
+    shouldListenRef.current = false
+    discardRecording()
+    clearFailsafe()
+    closeAudioContext()
+    releaseMic()
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+    setIsListening(false)
+    setIsSpeaking(false)
+    setIsLoading(false)
+    setHeardNothing(false)
+    setMicStopped(false)
+    wakeLockRef.current?.release().catch(() => {})
+    wakeLockRef.current = null
+    setStudyEnded(true)
   }
 
   // The server turned a request away: the saved password is wrong or has
@@ -633,6 +668,7 @@ export default function ChatInterfaceMobile() {
   }
 
   const statusText = () => {
+    if (studyEnded) return 'Conversation ended. Scroll up to read it back.'
     if (isLoading) return 'Roberto is thinking...'
     if (isSpeaking) return 'Roberto is speaking...'
     if (isListening) {
@@ -797,18 +833,33 @@ export default function ChatInterfaceMobile() {
             End conversation
           </button>
         </>
-      ) : (
+      ) : studyEnded ? (
         <button
-          onClick={toggleListening}
-          disabled={isLoading || isSpeaking}
-          className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 ${
-            isListening
-              ? 'bg-accent scale-110 shadow-lg'
-              : 'bg-secondary hover:bg-accent/40'
-          } disabled:opacity-40 disabled:cursor-not-allowed`}
+          onClick={endConversation}
+          className="bg-accent text-foreground border-2 border-foreground rounded-2xl px-6 py-2 font-daniel font-bold text-lg hover:scale-105 transition-transform"
         >
-          {isListening ? <Send size={28} className="text-foreground" /> : <Mic size={28} />}
+          Start a new chat
         </button>
+      ) : (
+        <>
+          <button
+            onClick={toggleListening}
+            disabled={isLoading || isSpeaking}
+            className={`w-20 h-20 rounded-full border-2 border-foreground flex items-center justify-center transition-all duration-200 ${
+              isListening
+                ? 'bg-accent scale-110 shadow-lg'
+                : 'bg-secondary hover:bg-accent/40'
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+          >
+            {isListening ? <Send size={28} className="text-foreground" /> : <Mic size={28} />}
+          </button>
+          <button
+            onClick={finishStudy}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+          >
+            End conversation
+          </button>
+        </>
       )}
 
     </div>
