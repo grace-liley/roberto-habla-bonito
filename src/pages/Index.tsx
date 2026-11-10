@@ -1,8 +1,15 @@
 import Header from "@/components/Header";
 import IntroSection from "@/components/IntroSection";
 import ChatInterface from "@/components/ChatInterface";
+import ChatInterfaceMobile from "@/components/ChatInterfaceMobile";
 import InstallPrompt from "@/components/InstallPrompt";
 import { NEXT_EVENT_URL } from "@/lib/nextEvent";
+import { isPhoneOrTablet } from "@/lib/device";
+
+// Phones and tablets get their own version of the chat while the iPhone mic
+// problem is being fixed; laptops keep the version that works for them.
+// Decided once, when the page loads (see src/lib/device.ts).
+const onPhoneOrTablet = isPhoneOrTablet();
 
 const Index = () => {
   return (
@@ -19,7 +26,7 @@ const Index = () => {
         <div className="panel">
           <IntroSection />
         </div>
-        <ChatInterface />
+        {onPhoneOrTablet ? <ChatInterfaceMobile /> : <ChatInterface />}
       </main>
 
       <footer className="bg-background border-t-2 border-foreground mt-4 py-6">
